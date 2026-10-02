@@ -6,10 +6,10 @@ import os
 import re
 import sys
 
-import requests
 from dotenv import load_dotenv
 
 from internbot.models import Job
+from internbot.sources.base import SourceError, get_json
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ DEFAULT_KEYWORDS = [
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
-class AdzunaError(RuntimeError):
+class AdzunaError(SourceError):
     pass
 
 
@@ -66,13 +66,11 @@ def fetch_jobs(
             "content-type": "application/json",
         }
         try:
-            resp = requests.get(BASE_URL.format(page=1), params=params, timeout=timeout)
-        except requests.RequestException as exc:
-            # Original error text includes the URL with credentials; don't leak it.
-            raise AdzunaError(f"Adzuna request failed: {type(exc).__name__}") from None
-        if not resp.ok:
-            raise AdzunaError(f"Adzuna error {resp.status_code} for keyword {keyword!r}")
-        results = resp.json().get("results", [])
+            results = get_json(BASE_URL.format(page=1), params=params, timeout=timeout).get(
+                "results", []
+            )
+        except SourceError as exc:
+            raise AdzunaError(f"Adzuna {keyword!r}: {exc}") from None
         log.info("adzuna %r -> %d results", keyword, len(results))
         for raw in results:
             try:

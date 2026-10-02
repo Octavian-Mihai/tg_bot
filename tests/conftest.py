@@ -12,7 +12,7 @@ def make_job():
             company=kw.get("company", "Acme"),
             location=kw.get("location", "Montréal, QC"),
             url=kw.get("url", f"https://example.com/{n}"),
-            source="adzuna",
+            source=kw.get("id", "adzuna:x").split(":")[0],
         )
 
     return _make

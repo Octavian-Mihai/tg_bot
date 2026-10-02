@@ -39,10 +39,10 @@ jobs:
                echo "Toronto hour=$hour dow=$dow: not a scheduled slot, skipping" ;;
           esac
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.guard.outputs.run == 'true'
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.guard.outputs.run == 'true'
         with:
           python-version: "3.12"

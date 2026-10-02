@@ -1,0 +1,46 @@
+# Company job boards to watch (public Greenhouse / Lever APIs, no keys needed).
+# Add a company: find its board slug in the careers URL
+#   boards.greenhouse.io/<slug>   or   jobs.lever.co/<slug>
+# Only jobs whose location matches one of `locations` are kept.
+
+locations = ["montreal", "quebec", "qc"]
+
+[[company]]
+name = "Epic Games"
+ats = "greenhouse"
+slug = "epicgames"
+
+[[company]]
+name = "MongoDB"
+ats = "greenhouse"
+slug = "mongodb"
+
+[[company]]
+name = "Databricks"
+ats = "greenhouse"
+slug = "databricks"
+
+[[company]]
+name = "Samsara"
+ats = "greenhouse"
+slug = "samsara"
+
+[[company]]
+name = "Vooban"
+ats = "greenhouse"
+slug = "vooban"
+
+[[company]]
+name = "AlayaCare"
+ats = "greenhouse"
+slug = "alayacare"
+
+[[company]]
+name = "Mistplay"
+ats = "lever"
+slug = "mistplay"
+
+[[company]]
+name = "Plusgrade"
+ats = "lever"
+slug = "plusgrade"

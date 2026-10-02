@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 
 from internbot.models import Job
+from internbot.textutil import normalize_text
 
 INTERNSHIP_RE = re.compile(
     r"\b(intern|interns|internship|stagiaire|stagiaires|stage|co-?op|alternance)\b"
@@ -24,17 +24,12 @@ TECH_RE = re.compile(
     r")\b"
 )
 
-def _normalize(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
-
-
 def is_internship(job: Job) -> bool:
-    return bool(INTERNSHIP_RE.search(_normalize(job.title)))
+    return bool(INTERNSHIP_RE.search(normalize_text(job.title)))
 
 
 def is_tech(job: Job) -> bool:
-    title = _normalize(job.title)
+    title = normalize_text(job.title)
     return bool(TECH_RE.search(title))
 
 
