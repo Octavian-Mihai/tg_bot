@@ -25,7 +25,8 @@ flowchart LR
     F --> D[storage.py<br/>SQLite dedupe]
     D --> N[formatting.py<br/>batch + split]
     N --> T[notifier.py<br/>Telegram]
-    D <-. seen_jobs.db .-> S[(state branch)]
+    S[(state branch)] -.->|restore seen_jobs.db| D
+    D -.->|save seen_jobs.db| S
     CRON[GitHub Actions cron<br/>Toronto time slots] --> M
 ```
 
