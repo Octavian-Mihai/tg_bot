@@ -36,6 +36,26 @@ ats = "greenhouse"
 slug = "alayacare"
 
 [[company]]
+name = "2K (Take-Two)"
+ats = "greenhouse"
+slug = "2k"
+
+[[company]]
+name = "Lyft"
+ats = "greenhouse"
+slug = "lyft"
+
+[[company]]
+name = "Zscaler"
+ats = "greenhouse"
+slug = "zscaler"
+
+[[company]]
+name = "Hootsuite"
+ats = "greenhouse"
+slug = "hootsuite"
+
+[[company]]
 name = "Mistplay"
 ats = "lever"
 slug = "mistplay"
