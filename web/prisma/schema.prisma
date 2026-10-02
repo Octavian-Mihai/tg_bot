@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Status {
+  SAVED
+  APPLIED
+  OA
+  INTERVIEW
+  OFFER
+  REJECTED
+}
+
+model User {
+  id            String        @id @default(cuid())
+  name          String?
+  email         String        @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  applications  Application[]
+  createdAt     DateTime      @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Job {
+  id           String        @id @default(cuid())
+  source       String
+  externalId   String        @unique // e.g. "adzuna:123", "greenhouse:epicgames:456"
+  dedupeKey    String        @unique // normalized "company|title" (cross-source identity)
+  title        String
+  company      String
+  location     String
+  url          String
+  firstSeenAt  DateTime      @default(now())
+  lastSeenAt   DateTime      @default(now())
+  applications Application[]
+
+  @@index([firstSeenAt])
+}
+
+model Application {
+  id        String     @id @default(cuid())
+  userId    String
+  jobId     String
+  status    Status     @default(SAVED)
+  position  Float      @default(0) // order within a kanban column
+  notes     String     @default("")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  appliedAt DateTime?
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job       Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
+
+  @@unique([userId, jobId])
+  @@index([userId, status])
+}
+
+model Reminder {
+  id            String      @id @default(cuid())
+  applicationId String
+  dueAt         DateTime
+  note          String      @default("")
+  sentAt        DateTime?
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([sentAt, dueAt])
+}

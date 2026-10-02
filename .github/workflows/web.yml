@@ -1,0 +1,44 @@
+name: web
+
+on:
+  push:
+    paths: ["web/**", ".github/workflows/web.yml", "companies.toml"]
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml", "companies.toml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: internbot
+          POSTGRES_PASSWORD: internbot
+          POSTGRES_DB: internbot_e2e
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U internbot" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgresql://internbot:internbot@localhost:5433/internbot_e2e
+      DATABASE_URL: postgresql://internbot:internbot@localhost:5433/internbot_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report
