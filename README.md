@@ -51,9 +51,10 @@ internbot/
   storage.py      SQLite seen-jobs store
   notifier.py     Notifier interface + TelegramNotifier
   main.py         orchestration
+  heartbeat.py    weekly check-in message
 companies.toml    company boards to watch + location keywords
 tests/            pytest suite
-.github/workflows/daily.yml
+.github/workflows/  daily.yml (checks for jobs), weekly.yml (check-in + keepalive)
 ```
 
 ## Setup
@@ -97,8 +98,12 @@ public, so never put secrets in it. Alternatives considered: `actions/cache` (ev
 idle days, which would resend old postings), workflow artifacts (clunky to fetch across runs) and
 an external database (extra account and dependency).
 
-GitHub pauses scheduled workflows on a public repo after 60 days without repo activity; re-enable
-it from the Actions tab if you get the email.
+**Weekly check-in and keepalive:** `weekly.yml` runs Mondays at 09:xx Toronto time. It sends a
+short Telegram message (postings sent in the last 7 days, total tracked, number of sources), so
+**no message on Monday means something broke**. GitHub pauses scheduled workflows on a public repo
+after 60 days without repository activity, so the same job re-enables both schedules through the
+API and pushes a fresh commit to the `state` branch to reset that clock. That is best-effort; if
+you ever get GitHub's "scheduled workflows disabled" email, re-enable them from the Actions tab.
 
 ## Adding companies
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from internbot.models import Job
 
@@ -72,6 +72,15 @@ class Storage:
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 [(j.id, j.title, j.company, j.url, now, j.key) for j in jobs],
             )
+
+    def stats(self, days: int = 7) -> tuple[int, int]:
+        """Return (jobs first seen within the last `days` days, total jobs tracked)."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        recent = self.conn.execute(
+            "SELECT COUNT(*) FROM seen_jobs WHERE first_seen >= ?", (cutoff,)
+        ).fetchone()[0]
+        total = self.conn.execute("SELECT COUNT(*) FROM seen_jobs").fetchone()[0]
+        return recent, total
 
     def close(self) -> None:
         self.conn.close()

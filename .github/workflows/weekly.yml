@@ -1,0 +1,80 @@
+name: weekly check-in
+
+on:
+  schedule:
+    # Mondays 09:47 Toronto: 13:47 UTC (EDT) or 14:47 UTC (EST); the guard picks the right one.
+    - cron: "47 13,14 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # refresh the `state` branch (counts as repository activity)
+  actions: write # re-enable the scheduled workflows
+
+concurrency:
+  group: internbot # share the lock with daily.yml so nobody overwrites the DB mid-run
+  cancel-in-progress: false
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Guard (Monday 09:xx Toronto time)
+        id: guard
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+             || [ "$(TZ=America/Toronto date +%u-%-H)" = "1-9" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Not Monday 09:xx in Toronto, skipping"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.guard.outputs.run == 'true'
+
+      - uses: actions/setup-python@v7
+        if: steps.guard.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Restore seen-jobs DB from the state branch
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          if git fetch --depth=1 origin state 2>/dev/null; then
+            git show FETCH_HEAD:seen_jobs.db > seen_jobs.db
+          else
+            echo "No state branch yet; starting with an empty DB"
+          fi
+
+      - name: Send weekly check-in
+        if: steps.guard.outputs.run == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m internbot.heartbeat
+
+      # GitHub disables scheduled workflows after 60 days without repository activity.
+      # Re-enabling them through the API and pushing a fresh commit to `state` resets that clock.
+      - name: Keepalive (re-enable schedules, refresh state branch)
+        if: steps.guard.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wf in daily.yml weekly.yml; do
+            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/$wf/enable"
+          done
+          dir=$(mktemp -d)
+          cp seen_jobs.db "$dir/" 2>/dev/null || touch "$dir/seen_jobs.db"
+          cd "$dir"
+          git init -q -b state
+          git add seen_jobs.db
+          git -c user.name="internbot" -c user.email="internbot@users.noreply.github.com" \
+            commit -q -m "Keepalive $(date -u +%F)"
+          git push -q --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" state
