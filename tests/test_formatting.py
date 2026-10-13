@@ -9,9 +9,9 @@ def ranked(make_job, profile, n=1, **kw):
 
 def test_format_job_has_rank_title_company_location_url_and_resume(make_job, profile):
     text = format_job(3, ranked(make_job, profile, title="Backend Intern", company="Coveo")[0])
-    assert text.startswith("3. Backend Intern")
+    assert text.startswith("3. <b>Backend Intern</b>")
     assert "Coveo — Montréal, QC" in text and "https://example.com/1" in text
-    assert "chance" in text and "quality" in text and "Résumé: backend" in text
+    assert "chance" in text and "quality" in text and "Résumé: <i>backend" in text
 
 
 def test_format_job_shows_the_term_and_title_only_marker(make_job, profile):
@@ -67,3 +67,14 @@ def test_empty_message_says_so_and_names_failures():
     assert "no new internship postings" in text and "120 postings" in text and "workday" in text
     assert "failed" not in format_empty(datetime(2026, 10, 13, 14, 5), 1, 2, 0, [])
     assert "1 failed: lever" in sources_footer(5, 1, ["lever"])
+
+
+def test_format_job_escapes_html(make_job, profile):
+    text = format_job(1, ranked(make_job, profile, title="R&D <Intern>")[0])
+    assert "<b>R&amp;D &lt;Intern&gt;</b>" in text
+
+
+def test_montreal_postings_rank_before_better_scoring_others(make_job, profile):
+    jobs = [make_job(1, location="Toronto, ON"), make_job(2, location="Montréal, QC")]
+    order = [r.job.location for r in rank_jobs(jobs, profile)]
+    assert order[0] == "Montréal, QC"

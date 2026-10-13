@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from html import escape
 
 from internbot.notifier import TELEGRAM_MAX_LEN
 from internbot.ranking import Ranked
@@ -23,15 +24,15 @@ def format_job(rank: int, item: Ranked) -> str:
     if score.confidence == "low":
         facts.append("title only")
     lines = [
-        f"{rank}. {job.title}",
-        f"   {job.company}{where}",
-        f"   ⭐ {' · '.join(facts)}",
-        f"   📄 Résumé: {item.resume.reason}",
+        f"{rank}. <b>{escape(job.title)}</b>",
+        f"   {escape(job.company)}{escape(where)}",
+        f"   ⭐ {escape(' · '.join(facts))}",
+        f"   📄 Résumé: <i>{escape(item.resume.reason)}</i>",
     ]
     warnings = [f.replace("_", " ") for f in score.flags] + ([score.level_reason] if score.level_reason else [])
     if warnings:
-        lines.append(f"   ⚠ {', '.join(warnings)}")
-    lines.append(f"   {job.url}")
+        lines.append(f"   ⚠ {escape(', '.join(warnings))}")
+    lines.append(f"   {escape(job.url)}")
     return "\n".join(lines)
 
 
@@ -73,12 +74,12 @@ def format_empty(now: datetime, scanned: int, sources_ok: int, sources_failed: i
         f"Looked through {scanned} postings across {sources_ok} sources."
     )
     if sources_failed:
-        text += f"\n⚠ {sources_failed} source(s) failed: {', '.join(failed_names[:6])}"
+        text += f"\n⚠ {sources_failed} source(s) failed: {escape(', '.join(failed_names[:6]))}"
     return text
 
 
 def sources_footer(sources_ok: int, sources_failed: int, failed_names: list[str]) -> str:
     text = f"Checked {sources_ok} sources"
     if sources_failed:
-        text += f" ({sources_failed} failed: {', '.join(failed_names[:5])})"
+        text += f" ({sources_failed} failed: {escape(', '.join(failed_names[:5]))})"
     return text
