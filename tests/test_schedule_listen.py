@@ -81,6 +81,7 @@ class Calls:
             [m for m in self.updates], max(range(1, len(self.updates) + 1), default=None) if self.updates else None))
         monkeypatch.setattr(listen, "reply", lambda token, chat, text: self.sent.append(text))
         monkeypatch.setattr(listen, "dispatch", lambda repo, ref, tok: self.dispatched.append((repo, ref)))
+        monkeypatch.setattr(listen, "pending_taps", lambda token, chat: [])
         monkeypatch.setattr(listen, "confirm", lambda token, last: self.confirmed.append(last))
         monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
         monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
@@ -137,3 +138,36 @@ def test_messages_from_strangers_and_stale_ones_never_count():
     finally:
         listen._call = orig
     assert len(mine) == 1 and last == 3
+
+
+def _kb(*nums):
+    return [[{"text": "x", "callback_data": f"a:{n}"}, {"text": "y", "callback_data": f"s:{n}"}] for n in nums]
+
+
+def test_tap_collapses_only_that_posting_and_undo_restores_it():
+    new, toast = listen.apply_tap("a:2", _kb(1, 2, 3))
+    assert toast == "Marked applied" and len(new) == 3
+    assert new[1] == [{"text": "✅ Applied 2 · undo", "callback_data": "u:2"}]
+    assert new[0] == _kb(1)[0] and new[2] == _kb(3)[0]
+    restored, _ = listen.apply_tap("u:2", new)
+    assert restored[1][0]["callback_data"] == "a:2" and restored[1][1]["callback_data"] == "s:2"
+
+
+def test_skip_tap_and_foreign_taps():
+    new, _ = listen.apply_tap("s:1", _kb(1))
+    assert new[0][0]["text"].startswith("🚫 Skipped")
+    assert listen.apply_tap("zzz", _kb(1)) is None and listen.apply_tap("a:9", _kb(1)) is None
+
+
+def test_taps_are_handled_before_confirming(monkeypatch):
+    calls = []
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
+    monkeypatch.setattr(listen, "pending_messages", lambda token, chat, now=None: ([], 7))
+    tap = {"id": "q", "data": "a:1", "message": {"chat": {"id": 42}, "message_id": 5,
+                                                   "reply_markup": {"inline_keyboard": _kb(1)}}}
+    monkeypatch.setattr(listen, "pending_taps", lambda token, chat: [tap])
+    monkeypatch.setattr(listen, "_call", lambda url, payload=None, headers=None: calls.append(url.rsplit("/", 1)[1]) or {})
+    monkeypatch.setattr(listen, "confirm", lambda token, last: calls.append(f"confirm{last}"))
+    assert listen.run() == 0
+    assert calls == ["editMessageReplyMarkup", "answerCallbackQuery", "confirm7"]

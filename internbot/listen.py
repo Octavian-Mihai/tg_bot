@@ -61,7 +61,7 @@ def is_trigger(text: str | None, keywords: tuple[str, ...] | list[str]) -> bool:
 def pending_messages(token: str, chat_id: str, now: float | None = None) -> tuple[list[dict], int | None]:
     """(messages from the owner that are recent enough to act on, highest update id seen)."""
     now = now or time.time()
-    result = _call(f"https://api.telegram.org/bot{token}/getUpdates?timeout=0&allowed_updates=%5B%22message%22%5D").get("result", [])
+    result = _call(f"https://api.telegram.org/bot{token}/getUpdates?timeout=0&allowed_updates=%5B%22message%22%2C%22callback_query%22%5D").get("result", [])
     last_id = max((u["update_id"] for u in result), default=None)
     mine = []
     for u in result:
@@ -69,6 +69,62 @@ def pending_messages(token: str, chat_id: str, now: float | None = None) -> tupl
         if str((msg.get("chat") or {}).get("id")) == str(chat_id) and now - msg.get("date", 0) <= MAX_AGE_SECONDS:
             mine.append(msg)
     return mine, last_id
+
+
+def apply_tap(data: str, keyboard: list[list[dict]]) -> tuple[list[list[dict]], str] | None:
+    """The new keyboard and a toast for one tap, or None if `data` isn't one of ours.
+
+    "a:3"/"s:3" collapse posting 3's button row into a single status button; "u:3" (undo)
+    restores the pair. Telegram hands back the message's current keyboard with every tap, so
+    the keyboard is the only record needed.
+    """
+    kind, _, num = data.partition(":")
+    if kind not in ("a", "s", "u") or not num.isdigit():
+        return None
+    pair = [{"text": f"✅ Applied · {num}", "callback_data": f"a:{num}"},
+            {"text": f"🚫 Skip · {num}", "callback_data": f"s:{num}"}]
+    row = {"a": [{"text": f"✅ Applied {num} · undo", "callback_data": f"u:{num}"}],
+           "s": [{"text": f"🚫 Skipped {num} · undo", "callback_data": f"u:{num}"}],
+           "u": pair}[kind]
+    mine = {f"{p}:{num}" for p in ("a", "s", "u")}
+    new, hit = [], False
+    for r in keyboard:
+        if r and r[0].get("callback_data") in mine:
+            new.append(row)
+            hit = True
+        else:
+            new.append(r)
+    if not hit:
+        return None
+    return new, {"a": "Marked applied", "s": "Skipped", "u": "Undone"}[kind]
+
+
+def pending_taps(token: str, chat_id: str) -> list[dict]:
+    """Button taps from the owner's chat."""
+    result = _call(f"https://api.telegram.org/bot{token}/getUpdates?timeout=0&allowed_updates=%5B%22callback_query%22%5D").get("result", [])
+    taps = []
+    for u in result:
+        q = u.get("callback_query") or {}
+        if str(((q.get("message") or {}).get("chat") or {}).get("id")) == str(chat_id):
+            taps.append(q)
+    return taps
+
+
+def handle_tap(token: str, tap: dict) -> None:
+    msg = tap["message"]
+    keyboard = (msg.get("reply_markup") or {}).get("inline_keyboard") or []
+    outcome = apply_tap(tap.get("data") or "", keyboard)
+    base = f"https://api.telegram.org/bot{token}"
+    if outcome:
+        new, toast = outcome
+        _call(f"{base}/editMessageReplyMarkup", {
+            "chat_id": msg["chat"]["id"], "message_id": msg["message_id"], "reply_markup": {"inline_keyboard": new}})
+    else:
+        toast = ""
+    try:  # an answer to a tap that is minutes old is refused; the edit above is what matters
+        _call(f"{base}/answerCallbackQuery", {"callback_query_id": tap["id"], "text": toast})
+    except ListenError:
+        pass
 
 
 def confirm(token: str, last_id: int) -> None:
@@ -103,6 +159,9 @@ def run() -> int:
     if last_id is None:
         print("no pending messages")
         return 0
+
+    for tap in pending_taps(token, chat_id):
+        handle_tap(token, tap)
 
     texts = [m.get("text") for m in messages]
     if any(is_trigger(t, keywords) for t in texts):

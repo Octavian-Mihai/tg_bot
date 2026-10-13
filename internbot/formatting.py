@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timezone
 from html import escape
 
@@ -78,6 +79,23 @@ def format_messages(
                 current = entry
         messages.append(current)
     return messages
+
+
+_ENTRY = re.compile(r"^(\d+)\. <b>", re.M)
+MAX_BUTTON_ROWS = 50  # Telegram allows 100 buttons per message
+
+
+def action_keyboard(text: str) -> dict | None:
+    """An Applied / Skip button pair under every numbered posting in `text`. The state of a tap
+    lives in the keyboard itself (see listen.py), so nothing is stored anywhere."""
+    nums = _ENTRY.findall(text)[:MAX_BUTTON_ROWS]
+    if not nums:
+        return None
+    return {"inline_keyboard": [
+        [{"text": f"✅ Applied · {n}", "callback_data": f"a:{n}"},
+         {"text": f"🚫 Skip · {n}", "callback_data": f"s:{n}"}]
+        for n in nums
+    ]}
 
 
 def format_empty(now: datetime, scanned: int, sources_ok: int, sources_failed: int, failed_names: list[str]) -> str:
