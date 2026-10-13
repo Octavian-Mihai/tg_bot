@@ -21,11 +21,15 @@ CREATE TABLE IF NOT EXISTS seen_jobs (
 """
 
 
+_META_SCHEMA = "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+
+
 class Storage:
     def __init__(self, path: str | None = None):
         self.path = path or os.environ.get("INTERNBOT_DB", DEFAULT_DB_PATH)
         self.conn = sqlite3.connect(self.path)
         self.conn.execute(_SCHEMA)
+        self.conn.execute(_META_SCHEMA)
         self._migrate()
         self.conn.commit()
 
@@ -81,6 +85,14 @@ class Storage:
         ).fetchone()[0]
         total = self.conn.execute("SELECT COUNT(*) FROM seen_jobs").fetchone()[0]
         return recent, total
+
+    def get_meta(self, key: str) -> str | None:
+        row = self.conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self.conn:
+            self.conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, value))
 
     def close(self) -> None:
         self.conn.close()

@@ -1,6 +1,20 @@
 import pytest
 
+from internbot import places
 from internbot.models import Job
+from internbot.profile import Profile
+
+
+@pytest.fixture(autouse=True)
+def default_places():
+    places.configure(places.DEFAULT_LOCATIONS, True)
+    yield
+    places.configure(places.DEFAULT_LOCATIONS, True)
+
+
+@pytest.fixture
+def profile():
+    return Profile()
 
 
 @pytest.fixture
@@ -13,6 +27,9 @@ def make_job():
             location=kw.get("location", "Montréal, QC"),
             url=kw.get("url", f"https://example.com/{n}"),
             source=kw.get("id", "adzuna:x").split(":")[0],
+            description=kw.get("description", ""),
+            term=kw.get("term", "unstated"),
+            compensation=kw.get("compensation", ""),
         )
 
     return _make

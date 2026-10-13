@@ -1,0 +1,50 @@
+# Everything about *when* and *how* internbot runs. Company boards live in companies.toml.
+
+[schedule]
+# Times are local to this timezone. GitHub's own cron is UTC-only, delayed and sometimes
+# skipped, so the workflow wakes every 15 minutes and runs whichever slot below is due and
+# hasn't been done yet. A slot GitHub skipped is caught up on the next wake-up.
+timezone = "America/Toronto"
+weekday_hours = [6, 8, 10, 12, 14, 16, 18, 20, 22]   # Mon-Fri
+weekend_hours = [8, 12, 16, 20]                      # Sat-Sun
+catch_up_hours = 6    # a missed slot is still run if it is at most this old
+max_attempts = 3      # tries per slot if the run fails, before giving up on that slot
+
+[notify]
+max_per_run = 25                  # postings per message batch; the rest wait for the next run, best first
+tell_me_when_nothing_new = true   # send "no new postings" instead of staying silent
+
+[trigger]
+# Message the bot any of these words (or /word) to run a check right now. Only your own chat
+# (TELEGRAM_CHAT_ID) is obeyed. Picked up within ~5 minutes by the "listen" workflow.
+keywords = ["check", "run", "jobs", "now", "scan", "refresh"]
+
+[search]
+remote_canada = true   # also keep "Remote - Canada" postings that name no specific city
+
+[limits]
+concurrency = 16          # parallel requests
+time_budget_minutes = 14  # stop starting new board fetches after this long
+
+# Every source is on. Set one to false to switch it off.
+[sources]
+github = true            # curated Summer 2027 internship lists on GitHub (+ token mines)
+jobbank = true           # Canada Job Bank (government feed)
+themuse = true           # The Muse
+adzuna = true            # needs ADZUNA_APP_ID / ADZUNA_APP_KEY
+levelsfyi = true         # levels.fyi internship data, mined for company boards
+hnhiring = true          # Hacker News "Who is hiring?", mined for company boards
+discovery = true         # probes data/employers.json against every ATS
+greenhouse = true
+lever = true
+ashby = true
+workday = true
+oracle = true
+smartrecruiters = true
+workable = true
+recruitee = true
+bamboohr = true
+icims = true
+eightfold = true
+personio = true
+phenom = true            # sites listed in data/phenom-sites.json

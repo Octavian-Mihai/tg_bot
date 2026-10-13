@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 from internbot.models import Job
 from internbot.sources.base import SourceError, get_json
+from internbot.terms import classify_posting
+from internbot.textutil import html_to_text
 
 log = logging.getLogger(__name__)
 
@@ -30,14 +32,19 @@ class AdzunaError(SourceError):
 
 
 def normalize(raw: dict) -> Job:
-    """Convert one Adzuna result into a Job."""
+    """Convert one Adzuna result into a Job. The search is already scoped to Montreal, so the
+    location is not re-checked here. The description is a ~500 character snippet."""
+    title = _TAG_RE.sub("", raw.get("title") or "").strip()
+    description = html_to_text(raw.get("description"))
     return Job(
         id=f"adzuna:{raw['id']}",
-        title=_TAG_RE.sub("", raw.get("title") or "").strip(),
+        title=title,
         company=((raw.get("company") or {}).get("display_name") or "Unknown company").strip(),
         location=((raw.get("location") or {}).get("display_name") or "").strip(),
         url=raw["redirect_url"],
         source="adzuna",
+        description=description,
+        term=classify_posting(title, description),
     )
 
 

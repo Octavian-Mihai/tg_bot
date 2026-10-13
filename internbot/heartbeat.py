@@ -11,12 +11,12 @@ from internbot.storage import Storage
 log = logging.getLogger("internbot")
 
 
-def build_message(recent: int, total: int, n_companies: int) -> str:
+def build_message(recent: int, total: int, n_companies: int, n_sources: int = 0) -> str:
     return (
         "internbot weekly check-in: still running ✅\n"
         f"New postings sent in the last 7 days: {recent}\n"
         f"Total postings tracked: {total}\n"
-        f"Sources: Adzuna + {n_companies} company boards"
+        f"Sources: {n_sources} source types + {n_companies} company boards"
     )
 
 
@@ -26,7 +26,7 @@ def main() -> int:
         config = load_config()
         with Storage() as storage:
             recent, total = storage.stats(days=7)
-        TelegramNotifier.from_env().send(build_message(recent, total, len(config.companies)))
+        TelegramNotifier.from_env().send(build_message(recent, total, len(config.companies), len(config.settings.sources)))
     except (ConfigError, NotifierError) as exc:
         log.error("%s", exc)
         return 1

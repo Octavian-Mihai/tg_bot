@@ -1,60 +1,184 @@
 # internbot
 
 A Telegram bot that watches for new **IT / software / cybersecurity / DevOps internships in the
-Montreal area** and sends them to me in a single batched message. It runs on a schedule in GitHub
-Actions and never sends the same posting twice.
+Montreal area** (Summer *and* Winter terms), ranks them, tells me which résumé to send, and
+messages me. It runs on a schedule in GitHub Actions, never sends the same posting twice, and
+can be started on demand by messaging it a keyword.
 
-Official APIs only: the Adzuna API, public Greenhouse and Lever job-board APIs, and the Telegram
-Bot API. No scraping, no unofficial clients.
+Official or public APIs only: Adzuna, the public job-board APIs of Greenhouse, Lever, Ashby,
+Workday and a dozen other applicant-tracking systems, Canada's Job Bank feed, and the Telegram
+Bot API. No logins, no browser automation.
+
+## What a message looks like
+
+```
+🆕 3 new internship postings, best match first
+
+1. Software Developer Intern
+   Shopify — Montréal, QC
+   ⭐ chance 71 · quality 74 · Summer 2027 · strong-tier · matches python, sql, docker
+   📄 Résumé: backend (databases, distributed systems)
+   https://...
+
+2. Cloud DevOps Intern
+   ...
+   📄 Résumé: devops (containers/orchestration, CI/CD)
+
+Checked 21 sources
+```
+
+When a check finds nothing new, you still hear about it:
+
+```
+✅ internbot checked at Tue Oct 13, 14:05: no new internship postings.
+Looked through 143 postings across 21 sources.
+```
+
+* **chance** (0-100): how well you fit, minus how contested the role is. It never exceeds fit.
+* **quality** (0-100): how good the internship is whoever applies: pay, return-offer and mentorship
+  language, real-work language, company tier.
+* **Résumé**: which of your résumé variants to send, with the evidence for it. The title votes
+  first; the posting body can override it only with a clear margin and more than one signal.
+
+Neither score is calibrated against real outcomes. They rank today's postings against each other,
+nothing more. Postings with no description (the curated lists carry titles only) are marked
+*title only*, and their scores lean on the title and the company.
+
+## Terms: winter and summer
+
+Every posting is classified from its title and description (English and French: *été 2027*,
+*hiver 2027*, start dates like "starting January 2027"):
+
+| Term | Meaning | Sent? |
+|---|---|---|
+| `summer-2027`, `winter-2027` | names an upcoming Summer or Winter term | yes |
+| `summer` / `winter` | a bare season in the title, no year | yes |
+| `unstated` | says nothing about a term | yes, a human decides |
+| `other-cycle` | Fall or Spring, or a past or far-future year | no |
+
+The wanted terms are computed from today's date (a term stays open for ~75 days after it starts,
+and is looked for up to ~15 months ahead), so nothing needs editing when the year changes.
+
+## Sources
+
+Every posting is filtered to the Montreal area (the metro's suburbs count, and so does
+"Remote - Canada" when no more specific place is named), to internship-looking IT/software
+titles, and to a wanted term.
+
+**Feeds**
+
+| Source | What it gives |
+|---|---|
+| Curated GitHub lists | vanshb03, speedyapply (US + international), sndsh404, resumax, zapplyjobs Canada: current postings. SimplifyJobs, the Canadian boards, zshah101 and others: mined for company boards only |
+| Canada Job Bank | the government feed (Quebec, software occupation codes, plus "software intern") |
+| The Muse | internships tagged Software Engineering |
+| Adzuna | keyword searches around Montreal (needs `ADZUNA_APP_ID` / `ADZUNA_APP_KEY`) |
+| levels.fyi, Hacker News "Who is hiring?" | mined for company boards only |
+| `companies.toml` | boards I picked by hand (Greenhouse / Lever) |
+
+**Company boards, enumerated directly.** Apply URLs in the feeds name each employer's board
+(`job-boards.greenhouse.io/figureai/...` means `figureai`), and `data/employers.json` is probed
+against every ATS, so employers no feed has mentioned are still found. Each board is read through
+its own public API:
+
+Greenhouse, Lever, Ashby, **Workday** (most Canadian employers, including student-only campus
+portals), Oracle Fusion, SmartRecruiters, Workable, Recruitee, BambooHR, iCIMS, Eightfold,
+Personio, and Phenom (sites in `data/phenom-sites.json`, e.g. Bell).
+
+Not included: Indeed. It needs a real browser and sits behind Cloudflare, which blocks GitHub's
+servers; it was switched off by default in the project this was ported from, too.
+
+Any source can be switched off in `settings.toml` under `[sources]`.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    subgraph Sources
-        A[Adzuna API]
-        G[Greenhouse boards]
-        L[Lever boards]
+    subgraph Feeds
+        GH[GitHub lists]
+        JB[Job Bank / Muse / Adzuna]
+        MINE[levels.fyi / HN]
     end
-    C[(companies.toml)] --> G
-    C --> L
-    A --> M
-    G --> M
-    L --> M
-    M[main.py<br/>collect] --> F[filters.py<br/>internship + tech title]
+    GH -- apply URLs --> TOK
+    MINE -- apply URLs --> TOK
+    DISC[data/employers.json] -- guessed boards --> TOK
+    TOK[board tokens] --> ATS[13 ATS scrapers<br/>Greenhouse, Workday, ...]
+    CO[(companies.toml)] --> ATS
+    GH --> M
+    JB --> M
+    ATS --> M[collect.py]
+    M --> F[filters + term<br/>internship, tech, Montreal,<br/>summer/winter]
     F --> D[storage.py<br/>SQLite dedupe]
-    D --> N[formatting.py<br/>batch + split]
-    N --> T[notifier.py<br/>Telegram]
-    S[(state branch)] -.->|restore seen_jobs.db| D
-    D -.->|save seen_jobs.db| S
-    CRON[GitHub Actions cron<br/>Toronto time slots] --> M
+    D --> R[ranking.py<br/>chance, quality, résumé]
+    R --> T[Telegram<br/>best first]
+    S[(state branch)] -.->|seen_jobs.db| D
+    D -.->|save| S
 ```
 
-1. **Collect:** every source returns normalized `Job` objects (`id`, `title`, `company`,
-   `location`, `url`, `source`). A failing source is logged and skipped; the run only fails if
-   *every* source fails.
-2. **Filter:** the title must look like an internship (`intern`, `stagiaire`, `stage`, `co-op`,
-   `alternance`) *and* mention a tech term. It leans towards false positives over missed postings.
+1. **Collect:** every source returns `Job` objects. A failing source is logged and skipped; the run
+   only fails if *every* source fails.
+2. **Filter:** internship title + IT/tech title + in the Montreal area + not a Fall/Spring/past term.
 3. **Dedupe:** SQLite remembers what was already sent, by job ID and by (company, title) across
-   different sources, so a posting listed on both Adzuna and a company board is sent once.
-4. **Notify:** new jobs are batched into one message, split on job boundaries at Telegram's
-   4,096-character limit. Jobs are marked as seen only after every message was delivered.
+   different sources, so a posting listed on a company board and on Adzuna is sent once.
+4. **Rank:** best chance first, then quality. Each posting gets its résumé recommendation.
+5. **Notify:** up to `max_per_run` postings (25) go out, split on posting boundaries at Telegram's
+   4,096-character limit. The rest wait for the next check, still best first. Postings are marked
+   seen only after every message was delivered.
+
+## Schedule: every slot actually runs
+
+Set the times in `settings.toml`:
+
+```toml
+[schedule]
+timezone = "America/Toronto"
+weekday_hours = [6, 8, 10, 12, 14, 16, 18, 20, 22]
+weekend_hours = [8, 12, 16, 20]
+```
+
+GitHub's cron is UTC-only, is routinely delayed, and sometimes drops runs entirely, so it can't be
+trusted to hit exact times. Instead the workflow wakes every 15 minutes and `internbot/schedule.py`
+asks: *has a slot come due that hasn't run yet?* A late run is simply run late; a slot GitHub
+skipped is caught up at the next wake-up (up to `catch_up_hours` = 6 hours later); a failed run
+is retried up to `max_attempts` = 3 times, with a Telegram alert each time. Daylight saving is
+handled by the timezone, not by hand. The last completed slot is stored in the same `seen_jobs.db`
+that holds the seen postings.
+
+Even so, GitHub can't promise a start time: a run may begin a few minutes after its slot.
+
+## Start a check by messaging the bot
+
+Send the bot `check` (or `run`, `jobs`, `now`, `scan`, `refresh`, with or without a slash; change the
+list under `[trigger]` in `settings.toml`). It replies "On it" and a check runs, with the results
+following in a few minutes. Only messages from my own chat (`TELEGRAM_CHAT_ID`) are obeyed, and
+messages older than two hours are ignored.
+
+How: Telegram can't call GitHub directly, so `listen.yml` polls the bot every 5 minutes (GitHub's
+shortest schedule) and, on a keyword, starts `daily.yml` through the GitHub API using the built-in
+`GITHUB_TOKEN`. No server and no extra token are needed. The cost is a lag of up to about 5 minutes
+(plus GitHub's own delay). A manual run always happens, whatever the schedule says.
 
 ## Project layout
 
 ```
 internbot/
-  sources/        adzuna.py, greenhouse.py, lever.py, base.py (HTTP retries, location matching)
-  config.py       loads companies.toml
-  filters.py      internship + tech title filters
-  formatting.py   message batching / splitting
-  storage.py      SQLite seen-jobs store
-  notifier.py     Notifier interface + TelegramNotifier
-  main.py         orchestration
-  heartbeat.py    weekly check-in message
-companies.toml    company boards to watch + location keywords
+  sources/        one module per source (github, workday, greenhouse, ...); base.py = HTTP, retries,
+                  parallel_map; common.py = the shared build_job gate
+  collect.py      runs every enabled source
+  terms.py        summer / winter / other-cycle classification
+  places.py       Montreal-area matching
+  scoring.py      chance + quality          lexicon.py   skills, role families, pay, company tiers
+  resume.py       résumé routing             profile.py   loads profile.json
+  ranking.py      best-first ordering        formatting.py  message layout
+  schedule.py     "is a slot due?"           listen.py    Telegram keyword -> workflow
+  filters.py  storage.py  notifier.py  config.py  main.py  heartbeat.py
+settings.toml     schedule, keywords, per-run cap, source switches
+companies.toml    company boards to watch + location keywords (also read by web/)
+profile.json      my skills and résumé variants, used for ranking
+data/             employers.json, phenom-sites.json
 tests/            pytest suite
-.github/workflows/  daily.yml (checks for jobs), weekly.yml (check-in + keepalive)
+web/              the dashboard / kanban app (separate; see web/README.md)
+.github/workflows/  daily.yml (checks), listen.yml (keyword), weekly.yml (check-in + keepalive)
 ```
 
 ## Setup
@@ -64,7 +188,13 @@ tests/            pytest suite
   then run `python -m internbot.notifier --get-chat-id` to find your chat ID.
 - **Adzuna:** register at <https://developer.adzuna.com> for a free app ID and key.
 
-### 2. Run locally
+### 2. Make `profile.json` mine
+The ranking is only as good as this file. List the skills I really have (keys from
+`internbot/lexicon.py`), the role families I prefer in order, and the résumé variants I actually
+have: `base`, `backend`, `frontend`, `ai`, `game`, `security`, `devops`. A variant not listed falls
+back to the closest one I do have, ending at `base`.
+
+### 3. Run locally
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env        # fill in the four values; .env is gitignored
@@ -79,31 +209,26 @@ cp .env.example .env        # fill in the four values; .env is gitignored
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | where to send |
 | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` | Adzuna API |
 | `INTERNBOT_DB` (optional) | SQLite path, default `seen_jobs.db` |
-| `INTERNBOT_CONFIG` (optional) | alternative to `companies.toml` |
+| `INTERNBOT_CONFIG`, `INTERNBOT_SETTINGS`, `INTERNBOT_PROFILE` (optional) | alternative config files |
 
-### 3. Deploy on GitHub Actions
-1. Push this repo to GitHub.
+A full run reads a few thousand public company boards and takes several minutes.
+
+### 4. Deploy on GitHub Actions
+1. Push this repo to GitHub (public, so scheduled runs are free).
 2. Add the four secrets above under *Settings → Secrets and variables → Actions*.
-3. Run the **internbot** workflow once manually (*Actions → Run workflow*) to verify.
-
-**Schedule (Toronto time):** weekdays at 06, 08, 10, 12, 14, 16, 18, 20 and 22; weekends at 08,
-12, 16 and 20. GitHub cron is UTC-only and Toronto switches between UTC-4 and UTC-5, so the cron
-fires on every UTC hour that could matter and a guard step checks the real Toronto time. Runs
-start a few minutes after the hour and GitHub may delay or occasionally skip scheduled runs.
+3. Run the **internbot** workflow once manually (*Actions → Run workflow*) to verify. The first
+   run finds a large backlog; the best 25 arrive now and the rest over the next checks.
 
 **Persistence:** runners have no disk between runs, so the workflow restores `seen_jobs.db` from
-an orphan `state` branch and force-pushes it back (as a single commit) when it changed. It is
-durable, free and needs no extra accounts. The DB holds only job IDs, titles and URLs; the repo is
-public, so never put secrets in it. Alternatives considered: `actions/cache` (evicted after 7
-idle days, which would resend old postings), workflow artifacts (clunky to fetch across runs) and
-an external database (extra account and dependency).
+an orphan `state` branch and force-pushes it back (as a single commit) when it changed. The DB holds
+only job IDs, titles, URLs and the schedule bookkeeping; the repo is public, so never put secrets in it.
 
 **Weekly check-in and keepalive:** `weekly.yml` runs Mondays at 09:xx Toronto time. It sends a
-short Telegram message (postings sent in the last 7 days, total tracked, number of sources), so
-**no message on Monday means something broke**. GitHub pauses scheduled workflows on a public repo
-after 60 days without repository activity, so the same job re-enables both schedules through the
-API and pushes a fresh commit to the `state` branch to reset that clock. That is best-effort; if
-you ever get GitHub's "scheduled workflows disabled" email, re-enable them from the Actions tab.
+short Telegram message, so **no message on Monday means something broke**. GitHub pauses scheduled
+workflows on a public repo after 60 days without repository activity, so the same job re-enables all
+three schedules through the API and pushes a fresh commit to the `state` branch to reset that clock.
+That is best-effort; if you ever get GitHub's "scheduled workflows disabled" email, re-enable them
+from the Actions tab.
 
 ## Adding companies
 
@@ -116,10 +241,11 @@ ats = "greenhouse"        # or "lever"
 slug = "example"          # boards.greenhouse.io/<slug> or jobs.lever.co/<slug>
 ```
 
-Companies on other systems (Workday, SmartRecruiters, ...) are not supported. Many large Montreal
-employers use those, so Adzuna also covers part of the gap.
+Most companies don't need an entry any more: if any feed links to their board, or they are in
+`data/employers.json`, they are found automatically.
 
-## Limitations
-- Title-only filtering: a vague title like "Summer Intern" is dropped.
-- Same company and title from *different* sources is treated as one posting.
-- Adzuna's Canadian coverage is uneven.
+## Credits
+
+The multi-source scraping, term classifier, scoring model and résumé router are ported from
+[ryan-helou/Jobify](https://github.com/ryan-helou/Jobify) (which has no license file), rewritten in
+Python and extended for winter terms, IT/cyber/DevOps roles and Telegram.

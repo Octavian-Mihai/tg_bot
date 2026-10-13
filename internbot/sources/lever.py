@@ -4,7 +4,8 @@ from __future__ import annotations
 import logging
 
 from internbot.models import Job
-from internbot.sources.base import SourceError, get_json, location_matcher
+from internbot.sources.base import SourceError, get_json
+from internbot.sources.common import build_job
 
 log = logging.getLogger(__name__)
 API = "https://api.lever.co/v0/postings/{slug}"
@@ -18,30 +19,23 @@ def _locations(raw: dict) -> list[str]:
     return found
 
 
-def normalize(raw: dict, slug: str, company: str) -> Job:
-    return Job(
-        id=f"lever:{slug}:{raw['id']}",
-        title=(raw.get("text") or "").strip(),
-        company=company,
-        location=((raw.get("categories") or {}).get("location") or "").strip(),
-        url=raw["hostedUrl"],
-        source="lever",
-    )
-
-
-def fetch_jobs(slug: str, company: str, locations: list[str]) -> list[Job]:
-    data = get_json(API.format(slug=slug), params={"mode": "json"})
+def fetch_jobs(slug: str, company: str = "") -> list[Job]:
+    data = get_json(API.format(slug=slug), params={"mode": "json"}, retries=2)
     if not isinstance(data, list):
         raise SourceError("unexpected Lever response shape")
-    in_area = location_matcher(locations)
     jobs: list[Job] = []
     for raw in data:
         try:
-            job = normalize(raw, slug, company)
+            url, pid = raw["hostedUrl"], raw["id"]
         except KeyError as exc:
             log.warning("lever/%s: skipping malformed posting (missing %s)", slug, exc)
             continue
-        if any(in_area(loc) for loc in _locations(raw)):
+        job = build_job(
+            source="lever", ident=f"{slug}:{pid}", company=company or slug, title=raw.get("text") or "",
+            location=" ; ".join(dict.fromkeys(_locations(raw))), url=url,
+            description=f"{raw.get('descriptionPlain') or ''} {raw.get('additionalPlain') or ''}".strip(),
+        )
+        if job:
             jobs.append(job)
     log.info("lever/%s -> %d jobs in area (of %d)", slug, len(jobs), len(data))
     return jobs

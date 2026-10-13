@@ -1,0 +1,33 @@
+name: listen
+
+# Message the bot a keyword (settings.toml [trigger]) and a check starts right away.
+#
+# Telegram can't call GitHub directly, so this polls for new messages every 5 minutes (GitHub's
+# minimum) and, on a keyword from your own chat, starts daily.yml. Expect a lag of up to a few
+# minutes: GitHub delays scheduled runs, and no workflow can be faster than its schedule.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  actions: write # start daily.yml
+  contents: read
+
+concurrency:
+  group: listen
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - name: Look for a keyword
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 -m internbot.listen

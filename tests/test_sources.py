@@ -22,7 +22,7 @@ def test_greenhouse_keeps_only_in_area_jobs(monkeypatch):
         ]
     }
     monkeypatch.setattr(greenhouse, "get_json", lambda url, **kw: data)
-    jobs = greenhouse.fetch_jobs("acme", "Acme", AREA)
+    jobs = greenhouse.fetch_jobs("acme", "Acme")
     assert [j.id for j in jobs] == ["greenhouse:acme:1"]
     assert jobs[0].company == "Acme" and jobs[0].source == "greenhouse"
 
@@ -34,14 +34,14 @@ def test_lever_matches_any_listed_location(monkeypatch):
         {"id": "b", "text": "DevOps Intern", "hostedUrl": "https://l/b", "categories": {"location": "Paris"}},
     ]
     monkeypatch.setattr(lever, "get_json", lambda url, **kw: data)
-    jobs = lever.fetch_jobs("acme", "Acme", AREA)
+    jobs = lever.fetch_jobs("acme", "Acme")
     assert [j.id for j in jobs] == ["lever:acme:a"]
 
 
 def test_lever_rejects_unexpected_shape(monkeypatch):
     monkeypatch.setattr(lever, "get_json", lambda url, **kw: {"error": "x"})
     with pytest.raises(SourceError):
-        lever.fetch_jobs("acme", "Acme", AREA)
+        lever.fetch_jobs("acme", "Acme")
 
 
 class _Resp:
@@ -68,3 +68,35 @@ def test_get_json_does_not_retry_client_errors_and_hides_url(monkeypatch):
         get_json("https://secret.example/?app_key=SECRET")
     assert len(n) == 1
     assert "SECRET" not in str(exc.value) and "404" in str(exc.value)
+
+
+def test_greenhouse_fetches_descriptions_only_for_survivors_and_reads_the_term(monkeypatch):
+    calls = []
+
+    def fake(url, **kw):
+        calls.append(url)
+        if url.endswith("/jobs"):
+            return {"jobs": [
+                {"id": 1, "title": "Software Intern", "absolute_url": "https://g/1", "location": {"name": "Montreal"}},
+                {"id": 2, "title": "Account Executive", "absolute_url": "https://g/2", "location": {"name": "Montreal"}},
+                {"id": 3, "title": "Software Intern (Fall 2026)", "absolute_url": "https://g/3", "location": {"name": "Montreal"}},
+            ]}
+        return {"content": "&lt;p&gt;Join us for the Winter 2027 term. Python and SQL.&lt;/p&gt;"}
+
+    monkeypatch.setattr(greenhouse, "get_json", fake)
+    jobs = greenhouse.fetch_jobs("acme", "Acme")
+    assert [j.id for j in jobs] == ["greenhouse:acme:1"]
+    assert jobs[0].term == "winter-2027" and "Python and SQL" in jobs[0].description
+    assert len(calls) == 2  # the listing plus one description
+
+
+def test_greenhouse_names_an_unnamed_board_from_its_metadata(monkeypatch):
+    def fake(url, **kw):
+        if url.endswith("/jobs"):
+            return {"jobs": [{"id": 1, "title": "Software Intern", "absolute_url": "https://g/1", "location": {"name": "Montreal"}}]}
+        if url.endswith("/jobs/1"):
+            return {"content": ""}
+        return {"name": "Figure AI"}
+
+    monkeypatch.setattr(greenhouse, "get_json", fake)
+    assert greenhouse.fetch_jobs("figureai")[0].company == "Figure AI"

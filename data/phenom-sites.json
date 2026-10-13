@@ -1,0 +1,20 @@
+{
+  "comment": [
+    "Phenom People career sites to enumerate (src/scrapers/phenom.js).",
+    "",
+    "Unlike the other ATS platforms, Phenom gives every employer a vanity domain, so",
+    "there is no shared host to harvest tokens from and nothing in the GitHub feeds",
+    "points at it. List the sites explicitly here. This is where the Canadian banks",
+    "and telcos live — they run Phenom and appear on no other source Jobify scrapes.",
+    "",
+    "Each entry: { host, company?, country?, lang? }. country/lang default to US",
+    "English; set them where the site is localized (Bell serves ca/en_ca). Verify a",
+    "candidate host by POSTing {ddoKey:'refineSearch'} to https://{host}/widgets — a",
+    "200 with a refineSearch.data.jobs array means it's Phenom.",
+    "",
+    "A dead or non-Phenom host costs one skipped request, nothing more."
+  ],
+  "sites": [
+    { "host": "jobs.bell.ca", "company": "Bell", "country": "ca", "lang": "en_ca" }
+  ]
+}

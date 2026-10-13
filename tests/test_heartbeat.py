@@ -1,5 +1,3 @@
-import sqlite3
-
 from internbot.heartbeat import build_message
 from internbot.storage import Storage
 
@@ -20,6 +18,14 @@ def test_stats_on_empty_db(tmp_path):
         assert s.stats() == (0, 0)
 
 
+def test_meta_roundtrip(tmp_path):
+    with Storage(str(tmp_path / "t.db")) as s:
+        assert s.get_meta("k") is None
+        s.set_meta("k", "a")
+        s.set_meta("k", "b")
+        assert s.get_meta("k") == "b"
+
+
 def test_message_contains_the_numbers():
-    msg = build_message(recent=4, total=120, n_companies=8)
-    assert "4" in msg and "120" in msg and "8 company boards" in msg
+    msg = build_message(recent=4, total=120, n_companies=8, n_sources=20)
+    assert "4" in msg and "120" in msg and "8 company boards" in msg and "20 source types" in msg

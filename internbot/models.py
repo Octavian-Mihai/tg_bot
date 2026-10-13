@@ -12,7 +12,10 @@ class Job:
     company: str
     location: str
     url: str
-    source: str
+    source: str  # channel name, e.g. "adzuna", "workday"; the part of `id` before the first ":"
+    description: str = ""  # plain text; empty when the source gives none
+    term: str = "unstated"  # "summer-2027 winter-2027", "summer", "unstated" or "other-cycle"
+    compensation: str = ""  # structured pay text when the source has it (Ashby)
 
     @property
     def key(self) -> str:
