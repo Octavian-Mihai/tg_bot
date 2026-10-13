@@ -5,11 +5,25 @@ One shared builder so a field can't drift between fifteen scrapers.
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date, datetime, timezone
 
 from internbot import places
 from internbot.filters import is_wanted_title
 from internbot.models import Job
 from internbot.terms import OTHER_CYCLE, classify_posting
+
+
+def to_date(value) -> str:
+    """Normalise a source's timestamp (ISO string or epoch seconds/ms) to YYYY-MM-DD; "" if unusable."""
+    try:
+        if isinstance(value, (int, float)):
+            seconds = value / 1000 if value > 1e11 else value
+            return datetime.fromtimestamp(seconds, timezone.utc).date().isoformat()
+        if isinstance(value, str) and value.strip():
+            return date.fromisoformat(value.strip()[:10]).isoformat()
+    except (ValueError, OverflowError, OSError):
+        pass
+    return ""
 
 
 def build_job(
@@ -24,6 +38,7 @@ def build_job(
     compensation: str = "",
     kind: str = "internship",
     term: str | None = None,
+    posted=None,
 ) -> Job | None:
     """Return a Job, or None when the title isn't a wanted internship, the location isn't
     workable from Montreal, or the posting is for the wrong hiring term.
@@ -51,6 +66,7 @@ def build_job(
         description=description or "",
         term=term,
         compensation=compensation or "",
+        posted=to_date(posted),
     )
 
 

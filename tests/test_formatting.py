@@ -78,3 +78,21 @@ def test_montreal_postings_rank_before_better_scoring_others(make_job, profile):
     jobs = [make_job(1, location="Toronto, ON"), make_job(2, location="Montréal, QC")]
     order = [r.job.location for r in rank_jobs(jobs, profile)]
     assert order[0] == "Montréal, QC"
+
+
+def test_posted_ago_wording():
+    from datetime import date
+    from internbot.formatting import posted_ago
+    today = date(2026, 10, 13)
+    assert posted_ago("2026-10-13", today) == "posted today"
+    assert posted_ago("2026-10-11", today) == "posted 2d ago"
+    assert posted_ago("", today) == "" and posted_ago("2027-01-01", today) == ""
+
+
+def test_priority_company_and_newest_break_ties(make_job, profile):
+    jobs = [make_job(1, company="Other"), make_job(2, company="Coveo"), make_job(3, company="Other")]
+    order = [r.job.company for r in rank_jobs(jobs, profile, ("coveo",))]
+    assert order[0] == "Coveo"
+    from dataclasses import replace
+    old, new = replace(make_job(4), posted="2026-01-01"), replace(make_job(5), posted="2026-10-01")
+    assert rank_jobs([old, new], profile)[0].job.id == new.id

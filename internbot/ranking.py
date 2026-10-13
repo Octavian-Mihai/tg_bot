@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from internbot.models import Job
 from internbot.places import MONTREAL
@@ -17,8 +18,22 @@ class Ranked:
     resume: ResumeChoice
 
 
-def rank_jobs(jobs: list[Job], profile: Profile) -> list[Ranked]:
-    """Montreal-area postings first, then highest chance, highest quality, and title for a stable order."""
+def _posted_ordinal(job: Job) -> int:
+    try:
+        return date.fromisoformat(job.posted).toordinal()
+    except ValueError:
+        return 0
+
+
+def rank_jobs(jobs: list[Job], profile: Profile, priority_companies: tuple[str, ...] = ()) -> list[Ranked]:
+    """Montreal-area first, then watchlist companies, then highest chance and quality, newest
+    posting, and title for a stable order."""
+    watch = {c.lower() for c in priority_companies}
     ranked = [Ranked(j, score_job(j, profile), choose_resume(j, profile)) for j in jobs]
-    ranked.sort(key=lambda r: (not MONTREAL.search(r.job.location or ""), -r.score.chance, -r.score.quality, r.job.title.lower(), r.job.id))
+    ranked.sort(key=lambda r: (
+        not MONTREAL.search(r.job.location or ""),
+        r.job.company.strip().lower() not in watch,
+        -r.score.chance, -r.score.quality, -_posted_ordinal(r.job),
+        r.job.title.lower(), r.job.id,
+    ))
     return ranked

@@ -68,7 +68,7 @@ def run(dry_run: bool = False, config: Config | None = None, profile: Profile | 
     with Storage() as storage:
         fresh = storage.filter_new(jobs)
         log.info("%d new jobs (not seen before)", len(fresh))
-        ranked = rank_jobs(fresh, profile)
+        ranked = rank_jobs(fresh, profile, settings.priority_companies)
 
         if ranked:
             footer = sources_footer(got.ok, got.failed, got.failed_names)

@@ -40,7 +40,7 @@ def scrape_tenant(token: str, company: str) -> list[Job]:
         url = o.get("careers_apply_url") or o.get("careers_url") or f"https://{token}.recruitee.com/o/{o.get('slug') or o.get('id')}"
         job = build_job(
             source="recruitee", ident=url, company=company or o.get("company_name") or token,
-            title=o.get("title") or "", location=_location(o), url=url,
+            title=o.get("title") or "", location=_location(o), url=url, posted=o.get("published_at"),
             description=html_to_text(" ".join(filter(None, [o.get("description"), o.get("requirements")]))),
         )
         if job:

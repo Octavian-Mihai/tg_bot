@@ -1,11 +1,21 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timezone
 from html import escape
 
 from internbot.notifier import TELEGRAM_MAX_LEN
 from internbot.ranking import Ranked
 from internbot.terms import pretty_term
+
+
+def posted_ago(posted: str, today: date | None = None) -> str:
+    try:
+        days = ((today or datetime.now(timezone.utc).date()) - date.fromisoformat(posted)).days
+    except ValueError:
+        return ""
+    if days < 0:
+        return ""
+    return "posted today" if days == 0 else "posted yesterday" if days == 1 else f"posted {days}d ago" if days < 60 else f"posted {posted}"
 
 
 def format_job(rank: int, item: Ranked) -> str:
@@ -15,6 +25,9 @@ def format_job(rank: int, item: Ranked) -> str:
     term = pretty_term(job.term) or (job.term.title() if job.term in ("summer", "winter") else "")
     if term:
         facts.append(term)
+    ago = posted_ago(job.posted)
+    if ago:
+        facts.append(ago)
     if score.pay:
         facts.append(score.pay)
     if score.tier != "unknown":

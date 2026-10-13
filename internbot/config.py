@@ -51,6 +51,7 @@ class Settings:
     sources: frozenset[str] = frozenset(ALL_SOURCES)
     concurrency: int = 16
     time_budget_minutes: int = 14  # stop starting new board fetches after this long
+    priority_companies: tuple[str, ...] = ()  # lower-cased names that rank first
 
 
 @dataclass(frozen=True)
@@ -109,6 +110,7 @@ def load_settings(path: str | os.PathLike | None = None) -> Settings:
         sources=frozenset(enabled),
         concurrency=int(limits.get("concurrency", base.concurrency)),
         time_budget_minutes=int(limits.get("time_budget_minutes", base.time_budget_minutes)),
+        priority_companies=tuple(str(n).strip().lower() for n in data.get("priority", {}).get("companies", []) if str(n).strip()),
     )
 
 

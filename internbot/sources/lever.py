@@ -32,7 +32,7 @@ def fetch_jobs(slug: str, company: str = "") -> list[Job]:
             continue
         job = build_job(
             source="lever", ident=f"{slug}:{pid}", company=company or slug, title=raw.get("text") or "",
-            location=" ; ".join(dict.fromkeys(_locations(raw))), url=url,
+            location=" ; ".join(dict.fromkeys(_locations(raw))), url=url, posted=raw.get("createdAt"),
             description=f"{raw.get('descriptionPlain') or ''} {raw.get('additionalPlain') or ''}".strip(),
         )
         if job:

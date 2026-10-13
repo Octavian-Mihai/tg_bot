@@ -25,6 +25,7 @@ def fetch_jobs(slug: str, company: str = "") -> list[Job]:
         job = build_job(
             source="ashby", ident=f"{slug}:{url}", company=company or slug, title=raw.get("title") or "",
             location=location, url=url or "", description=raw.get("descriptionPlain") or "", compensation=pay,
+            posted=raw.get("publishedAt"),
         )
         if job:
             jobs.append(job)

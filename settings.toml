@@ -22,6 +22,10 @@ keywords = ["check", "run", "jobs", "now", "scan", "refresh"]
 [search]
 remote_canada = true   # also keep "Remote - Canada" postings that name no specific city
 
+[priority]
+# Companies whose postings rank first within their group (Montreal ones first of all). Case-insensitive.
+companies = ["Coveo", "Ubisoft", "Shopify", "Mila", "Element AI", "Lightspeed"]
+
 [limits]
 concurrency = 16          # parallel requests
 time_budget_minutes = 14  # stop starting new board fetches after this long

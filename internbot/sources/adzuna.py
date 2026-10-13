@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from internbot.models import Job
 from internbot.sources.base import SourceError, get_json
+from internbot.sources.common import to_date
 from internbot.terms import classify_posting
 from internbot.textutil import html_to_text
 
@@ -45,6 +46,7 @@ def normalize(raw: dict) -> Job:
         source="adzuna",
         description=description,
         term=classify_posting(title, description),
+        posted=to_date(raw.get("created")),
     )
 
 
