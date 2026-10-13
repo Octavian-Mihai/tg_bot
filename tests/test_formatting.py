@@ -27,10 +27,18 @@ def test_no_jobs_means_no_messages():
     assert format_messages([]) == []
 
 
-def test_header_pluralization_and_queue_note(make_job, profile):
+def test_header_pluralization(make_job, profile):
     assert format_messages(ranked(make_job, profile, 1))[0].startswith("🆕 1 new internship posting,")
-    two = format_messages(ranked(make_job, profile, 2), queued=7)[0]
-    assert two.startswith("🆕 2 new internship postings,") and "7 more waiting" in two
+    assert format_messages(ranked(make_job, profile, 2))[0].startswith("🆕 2 new internship postings,")
+
+
+def test_postings_are_grouped_per_message(make_job, profile):
+    items = ranked(make_job, profile, 45)
+    messages = format_messages(items, per_message=20)
+    assert len(messages) == 3
+    assert "(message 1/3)" in messages[0] and "(message 3/3)" in messages[2]
+    assert "\n21. " in messages[1] and "\n45. " in messages[2]
+    assert all(i.job.url in "\n".join(messages) for i in items)
 
 
 def test_small_batch_is_a_single_message(make_job, profile):

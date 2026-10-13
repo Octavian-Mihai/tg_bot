@@ -69,11 +69,10 @@ def run(dry_run: bool = False, config: Config | None = None, profile: Profile | 
         fresh = storage.filter_new(jobs)
         log.info("%d new jobs (not seen before)", len(fresh))
         ranked = rank_jobs(fresh, profile)
-        batch, waiting = ranked[: settings.max_per_run], ranked[settings.max_per_run:]
 
-        if batch:
+        if ranked:
             footer = sources_footer(got.ok, got.failed, got.failed_names)
-            messages = format_messages(batch, queued=len(waiting), footer=footer)
+            messages = format_messages(ranked, per_message=settings.postings_per_message, footer=footer)
         elif settings.tell_me_when_nothing_new:
             now = datetime.now(ZoneInfo(settings.schedule.timezone))
             messages = [format_empty(now, len(jobs), got.ok, got.failed, got.failed_names)]
@@ -87,10 +86,9 @@ def run(dry_run: bool = False, config: Config | None = None, profile: Profile | 
         notifier = TelegramNotifier.from_env()
         for msg in messages:
             notifier.send(msg)
-        # Only mark the postings that were actually sent, and only after every message went out,
-        # so a failed send is retried next run and the ones that didn't fit arrive next time.
-        storage.mark_seen([r.job for r in batch])
-    log.info("sent %d message(s) covering %d posting(s), %d waiting", len(messages), len(batch), len(waiting))
+        # Mark postings seen only after every message went out, so a failed send is retried next run.
+        storage.mark_seen([r.job for r in ranked])
+    log.info("sent %d message(s) covering %d posting(s)", len(messages), len(ranked))
     return 0
 
 

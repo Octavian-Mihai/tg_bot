@@ -44,7 +44,7 @@ class Schedule:
 @dataclass(frozen=True)
 class Settings:
     schedule: Schedule = field(default_factory=Schedule)
-    max_per_run: int = 25  # postings per run; the rest wait for the next one, best first
+    postings_per_message: int = 20  # every new posting is sent, this many per message
     tell_me_when_nothing_new: bool = True
     trigger_keywords: tuple[str, ...] = ("check", "run", "jobs", "now", "scan", "refresh")
     remote_canada: bool = True
@@ -102,7 +102,7 @@ def load_settings(path: str | os.PathLike | None = None) -> Settings:
     keywords = tuple(str(k).strip().lower() for k in trigger.get("keywords", base.trigger_keywords) if str(k).strip())
     return Settings(
         schedule=schedule,
-        max_per_run=int(notify.get("max_per_run", base.max_per_run)),
+        postings_per_message=int(notify.get("postings_per_message", base.postings_per_message)),
         tell_me_when_nothing_new=bool(notify.get("tell_me_when_nothing_new", base.tell_me_when_nothing_new)),
         trigger_keywords=keywords,
         remote_canada=bool(data.get("search", {}).get("remote_canada", base.remote_canada)),

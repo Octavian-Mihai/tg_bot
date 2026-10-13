@@ -121,9 +121,9 @@ flowchart LR
 3. **Dedupe:** SQLite remembers what was already sent, by job ID and by (company, title) across
    different sources, so a posting listed on a company board and on Adzuna is sent once.
 4. **Rank:** best chance first, then quality. Each posting gets its résumé recommendation.
-5. **Notify:** up to `max_per_run` postings (25) go out, split on posting boundaries at Telegram's
-   4,096-character limit. The rest wait for the next check, still best first. Postings are marked
-   seen only after every message was delivered.
+5. **Notify:** every new posting is sent, `postings_per_message` (20) per message, as many messages
+   as it takes. A message that would pass Telegram's 4,096-character limit spills into another.
+   Postings are marked seen only after every message was delivered.
 
 ## Schedule: every slot actually runs
 

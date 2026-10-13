@@ -36,30 +36,33 @@ def format_job(rank: int, item: Ranked) -> str:
 
 
 def format_messages(
-    ranked: list[Ranked], queued: int = 0, footer: str = "", limit: int = TELEGRAM_MAX_LEN
+    ranked: list[Ranked], per_message: int = 20, footer: str = "", limit: int = TELEGRAM_MAX_LEN
 ) -> list[str]:
-    """Batch ranked postings into as few messages as possible, never exceeding `limit` chars."""
+    """Every ranked posting, `per_message` at a time; a group that exceeds `limit` chars spills over."""
     if not ranked:
         return []
     n = len(ranked)
-    header = f"🆕 {n} new internship posting{'s' if n != 1 else ''}, best match first"
-    if queued:
-        header += f"\n({queued} more waiting; they arrive in the next check)"
-    entries = [format_job(i, item) for i, item in enumerate(ranked, start=1)]
-    if footer:
-        entries.append(footer)
+    per_message = max(1, per_message)
+    groups = [ranked[i : i + per_message] for i in range(0, n, per_message)]
     messages: list[str] = []
-    current = header
-    for entry in entries:
-        if len(entry) > limit:
-            entry = entry[: limit - 1] + "…"
-        candidate = f"{current}\n\n{entry}"
-        if len(candidate) <= limit:
-            current = candidate
-        else:
-            messages.append(current)
-            current = entry
-    messages.append(current)
+    for g, group in enumerate(groups):
+        header = f"🆕 {n} new internship posting{'s' if n != 1 else ''}, best match first"
+        if len(groups) > 1:
+            header += f" (message {g + 1}/{len(groups)})"
+        entries = [format_job(g * per_message + i, item) for i, item in enumerate(group, start=1)]
+        if footer and g == len(groups) - 1:
+            entries.append(footer)
+        current = header
+        for entry in entries:
+            if len(entry) > limit:
+                entry = entry[: limit - 1] + "…"
+            candidate = f"{current}\n\n{entry}"
+            if len(candidate) <= limit:
+                current = candidate
+            else:
+                messages.append(current)
+                current = entry
+        messages.append(current)
     return messages
 
 

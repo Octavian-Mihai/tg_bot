@@ -32,12 +32,12 @@ def test_settings_parse_and_validate(tmp_path):
     f = tmp_path / "s.toml"
     f.write_text(
         '[schedule]\nweekday_hours=[9,17]\nweekend_hours=[12]\n'
-        '[notify]\nmax_per_run=5\ntell_me_when_nothing_new=false\n'
+        '[notify]\npostings_per_message=5\ntell_me_when_nothing_new=false\n'
         '[trigger]\nkeywords=["Go", " "]\n[sources]\nworkday=false\n'
     )
     s = load_settings(f)
     assert s.schedule.weekday_hours == (9, 17) and s.schedule.weekend_hours == (12,)
-    assert s.max_per_run == 5 and s.tell_me_when_nothing_new is False
+    assert s.postings_per_message == 5 and s.tell_me_when_nothing_new is False
     assert s.trigger_keywords == ("go",) and "workday" not in s.sources and "lever" in s.sources
 
 
@@ -117,14 +117,12 @@ def test_silent_when_told_not_to_report_empty_runs(monkeypatch, make_job, tmp_pa
     assert len(notifier.sent) == 1
 
 
-def test_overflow_waits_for_the_next_run(monkeypatch, make_job, tmp_path, notifier, profile):
+def test_all_postings_sent_in_groups(monkeypatch, make_job, tmp_path, notifier, profile):
     monkeypatch.setenv("INTERNBOT_DB", str(tmp_path / "t.db"))
     _patch(monkeypatch, make_job)
-    small = Config(companies=CFG.companies, settings=Settings(sources=CFG.settings.sources, max_per_run=1))
+    small = Config(companies=CFG.companies, settings=Settings(sources=CFG.settings.sources, postings_per_message=1))
     main_mod.run(config=small, profile=profile)
-    assert "1 new internship posting," in notifier.sent[0] and "1 more waiting" in notifier.sent[0]
-    main_mod.run(config=small, profile=profile)
-    assert "1 new internship posting," in notifier.sent[1] and "waiting" not in notifier.sent[1]
+    assert len(notifier.sent) == 2 and "message 1/2" in notifier.sent[0] and "message 2/2" in notifier.sent[1]
     main_mod.run(config=small, profile=profile)
     assert "no new internship postings" in notifier.sent[2]
 

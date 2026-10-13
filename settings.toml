@@ -11,7 +11,7 @@ catch_up_hours = 6    # a missed slot is still run if it is at most this old
 max_attempts = 3      # tries per slot if the run fails, before giving up on that slot
 
 [notify]
-max_per_run = 25                  # postings per message batch; the rest wait for the next run, best first
+postings_per_message = 20         # every new posting is sent, this many per message
 tell_me_when_nothing_new = true   # send "no new postings" instead of staying silent
 
 [trigger]
