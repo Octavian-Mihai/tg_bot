@@ -94,6 +94,24 @@ def _legacy_rows(src: sqlite3.Connection, have: set[str]) -> list[dict]:
     return out
 
 
+def bot_times() -> dict:
+    """When the bot last checked the job boards, and when it last found something new."""
+    out = {"last_run": None, "last_new": None}
+    if not JOBS_DB.exists():
+        return out
+    src = sqlite3.connect(JOBS_DB)
+    try:
+        row = src.execute("SELECT value FROM meta WHERE key = 'last_run'").fetchone()
+        out["last_run"] = row[0] if row else None
+        row = src.execute("SELECT MAX(first_seen) FROM seen_jobs").fetchone()
+        out["last_new"] = row[0] if row else None
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        src.close()
+    return out
+
+
 def load_jobs() -> list[dict]:
     """Every posting the bot sent, newest batch first, each with your status (or null)."""
     rows: list[dict] = []
@@ -178,12 +196,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/":
             self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/api/jobs":
-            self._json({"jobs": load_jobs()})
+            self._json({"jobs": load_jobs(), **bot_times()})
         elif self.path == "/api/ping":
             _last_ping[0] = time.monotonic()
             self._json({"ok": True})
         elif self.path == "/api/refresh":
-            self._json({"result": fetch_state(), "jobs": load_jobs()})
+            self._json({"result": fetch_state(), "jobs": load_jobs(), **bot_times()})
         elif self.path == "/export.csv":
             self._send(200, ("﻿" + applications_csv()).encode(), "text/csv; charset=utf-8",
                        {"Content-Disposition": 'attachment; filename="applications.csv"'})

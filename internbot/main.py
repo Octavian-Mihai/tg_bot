@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlencode, urlparse
 from zoneinfo import ZoneInfo
 
@@ -66,6 +66,8 @@ def run(dry_run: bool = False, config: Config | None = None, profile: Profile | 
     log.info("%d jobs after internship/tech/term filter", len(jobs))
 
     with Storage() as storage:
+        if not dry_run:
+            storage.set_meta("last_run", datetime.now(timezone.utc).isoformat())
         fresh = storage.filter_new(jobs)
         log.info("%d new jobs (not seen before)", len(fresh))
         ranked = rank_jobs(fresh, profile, settings.priority_companies)

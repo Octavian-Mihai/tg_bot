@@ -69,3 +69,11 @@ def test_postings_sent_before_details_were_kept_still_show_up(served, tmp_path):
     old = next(j for j in jobs(served) if j["id"] == "lever:old")
     assert old["place"] == "unknown" and old["resume"] and old["location"] == ""
     post(served, {"id": "lever:old", "status": "applied"})
+
+
+def test_bot_times_report_last_run_and_last_new_posting(served, tmp_path):
+    with Storage(str(tmp_path / "jobs.db")) as s:
+        s.set_meta("last_run", "2026-10-13T20:00:00+00:00")
+        s.mark_seen([])
+    times = json.load(urllib.request.urlopen(served + "/api/jobs"))
+    assert times["last_run"] == "2026-10-13T20:00:00+00:00" and "last_new" in times

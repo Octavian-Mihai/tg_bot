@@ -60,6 +60,7 @@ input[type=search]{font:inherit;padding:6px 10px;border:1px solid var(--line);bo
 </header>
 <main>
   <section id="view-jobs">
+    <div class="meta" id="botline" style="margin-bottom:10px"></div>
     <div class="filters" id="filters"></div>
     <div id="list"></div>
   </section>
@@ -74,10 +75,26 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 async function load(path = '/api/jobs') {
   try {
     const res = await fetch(path); const data = await res.json();
-    state.jobs = data.jobs; state.fetchedAt = new Date();
+    state.jobs = data.jobs; state.fetchedAt = new Date(); state.bot = {run: data.last_run, found: data.last_new};
     $('#sync').textContent = (data.result && data.result !== 'ok' ? data.result + ' · ' : '') + 'updated ' + state.fetchedAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
   } catch { $('#sync').textContent = 'server not reachable'; }
   render();
+  renderBot();
+}
+
+function when(iso) {
+  if (!iso) return null;
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 6e4);
+  const rel = m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.floor(m / 60) + ' h ago' : Math.floor(m / 1440) + ' d ago';
+  return rel + ' (' + new Date(iso).toLocaleString([], {weekday: 'short', hour: '2-digit', minute: '2-digit'}) + ')';
+}
+
+function renderBot() {
+  const b = state.bot || {};
+  const parts = [];
+  if (b.run) parts.push('Bot last checked ' + when(b.run));
+  if (b.found) parts.push('last new postings ' + when(b.found));
+  $('#botline').textContent = parts.join(' · ') || 'Bot has not reported a run yet';
 }
 
 async function mark(id, status) {
