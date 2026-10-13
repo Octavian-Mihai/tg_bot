@@ -68,7 +68,7 @@ input[type=search]{font:inherit;padding:6px 10px;border:1px solid var(--line);bo
 <script>
 const $ = (s) => document.querySelector(s);
 const state = {jobs: [], place: 'all', cv: 'all', status: 'new', q: '', fetchedAt: null};
-const PLACE = {montreal: 'Montréal', remote: 'Remote Canada', other: 'Other'};
+const PLACE = {montreal: 'Montréal', remote: 'Remote Canada', other: 'Other', unknown: 'Location unknown'};
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
 async function load(path = '/api/jobs') {
@@ -126,7 +126,7 @@ function renderList() {
     list.append(el('div', 'empty', state.jobs.length ? 'Nothing matches these filters.' : 'No data yet. Postings appear here after the bot\'s next run; then press Refresh.'));
     return;
   }
-  const order = {montreal: 0, remote: 1, other: 2};
+  const order = {montreal: 0, remote: 1, unknown: 2, other: 3};
   rows.sort((a, b) => order[a.place] - order[b.place] || (b.first_seen || '').slice(0, 10).localeCompare((a.first_seen || '').slice(0, 10)) || a.rank - b.rank);
   for (const j of rows) {
     const card = el('div', 'job' + (j.status ? ' ' + j.status : ''));

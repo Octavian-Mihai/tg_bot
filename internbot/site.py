@@ -63,6 +63,32 @@ def _apps() -> sqlite3.Connection:
     return conn
 
 
+LEGACY_LIMIT = 30
+
+
+def _legacy_rows(src: sqlite3.Connection, have: set[str]) -> list[dict]:
+    """The latest postings the bot sent before it kept full details: title, company and link
+    only, so location is unknown and the CV is chosen from the title alone."""
+    from internbot.models import Job
+    from internbot.profile import load_profile
+    from internbot.resume import choose_resume
+
+    profile = load_profile()
+    out = []
+    for r in src.execute("SELECT id, title, company, url, first_seen FROM seen_jobs ORDER BY first_seen DESC, rowid DESC"):
+        if r["id"] in have:
+            continue
+        if len(out) == LEGACY_LIMIT:
+            break
+        choice = choose_resume(Job(id=r["id"], title=r["title"], company=r["company"], location="", url=r["url"],
+                                   source=r["id"].split(":")[0]), profile)
+        out.append({"id": r["id"], "title": r["title"], "company": r["company"], "location": "", "url": r["url"],
+                    "source": r["id"].split(":")[0], "term": "", "posted": "", "chance": 0, "quality": 0,
+                    "resume": choice.variant, "family": choice.family, "place": "unknown", "rank": 0,
+                    "first_seen": r["first_seen"]})
+    return out
+
+
 def load_jobs() -> list[dict]:
     """Every posting the bot sent, newest batch first, each with your status (or null)."""
     rows: list[dict] = []
@@ -71,6 +97,7 @@ def load_jobs() -> list[dict]:
         src.row_factory = sqlite3.Row
         try:
             rows = [dict(r) for r in src.execute("SELECT * FROM postings ORDER BY first_seen DESC, rank")]
+            rows += _legacy_rows(src, {r["id"] for r in rows})
         except sqlite3.OperationalError:  # the bot hasn't saved a run with the new table yet
             pass
         finally:

@@ -60,3 +60,12 @@ def test_unknown_job_and_foreign_origin_are_rejected(served):
     with pytest.raises(urllib.error.HTTPError) as e:
         post(served, {"id": jobs(served)[0]["id"], "status": "applied"}, origin="http://evil.example")
     assert e.value.code == 403
+
+
+def test_postings_sent_before_details_were_kept_still_show_up(served, tmp_path):
+    with Storage(str(tmp_path / "jobs.db")) as s:
+        s.conn.execute("INSERT INTO seen_jobs (id,title,company,url,first_seen,key) VALUES ('lever:old','iOS Developer Intern','Ubisoft','https://x.test/old','2026-10-01T00:00:00+00:00','k')")
+        s.conn.commit()
+    old = next(j for j in jobs(served) if j["id"] == "lever:old")
+    assert old["place"] == "unknown" and old["resume"] and old["location"] == ""
+    post(served, {"id": "lever:old", "status": "applied"})
