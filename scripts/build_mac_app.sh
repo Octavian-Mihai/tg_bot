@@ -1,9 +1,9 @@
 #!/bin/bash
-# Builds Internbot.app and installs it in ~/Applications (Spotlight and the Dock can find it).
+# Builds Internbot.app and installs it in /Applications (or ~/Applications) (Spotlight and the Dock can find it).
 # Re-run after moving this project folder. Quitting = closing the window; the server stops itself.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$HOME/Applications/Internbot.app"
+APP="/Applications/Internbot.app"; [ -w /Applications ] || { mkdir -p "$HOME/Applications"; APP="$HOME/Applications/Internbot.app"; }
 PY="$ROOT/.venv/bin/python"; [ -x "$PY" ] || PY="$(command -v python3)"
 
 rm -rf "$APP"
