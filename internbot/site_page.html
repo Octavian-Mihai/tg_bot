@@ -199,6 +199,7 @@ function tab(name) {
 }
 $('#tab-jobs').onclick = () => tab('jobs'); $('#tab-stats').onclick = () => tab('stats');
 $('#refresh').onclick = async () => { $('#refresh').textContent = 'Refreshing…'; await load('/api/refresh'); $('#refresh').textContent = 'Refresh'; };
+const ping = () => fetch('/api/ping').catch(() => {}); ping(); setInterval(ping, 15000);
 load(); setInterval(() => load('/api/refresh'), 5 * 60 * 1000);
 </script>
 </body>

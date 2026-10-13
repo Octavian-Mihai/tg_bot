@@ -15,6 +15,8 @@ import json
 import sqlite3
 import subprocess
 import sys
+import threading
+import time
 import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,6 +28,8 @@ JOBS_DB = LOCAL / "jobs.db"
 APPS_DB = LOCAL / "applications.db"
 PAGE = Path(__file__).with_name("site_page.html")
 STATUSES = ("applied", "skipped")
+CLOSED_AFTER = 45  # seconds without a page heartbeat before --exit-when-closed stops the server
+_last_ping = [time.monotonic()]
 
 _APPS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS applications (
@@ -174,6 +178,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/api/jobs":
             self._json({"jobs": load_jobs()})
+        elif self.path == "/api/ping":
+            _last_ping[0] = time.monotonic()
+            self._json({"ok": True})
         elif self.path == "/api/refresh":
             self._json({"result": fetch_state(), "jobs": load_jobs()})
         elif self.path == "/export.csv":
@@ -200,6 +207,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Local internship dashboard")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-fetch", action="store_true", help="skip pulling the latest data")
+    parser.add_argument("--exit-when-closed", action="store_true", help="stop when the page is closed")
     parser.add_argument("--no-open", action="store_true", help="don't open the browser")
     args = parser.parse_args()
     if not args.no_fetch:
@@ -209,6 +217,13 @@ def main() -> int:
     print(f"Dashboard at {url}  (Ctrl+C to stop)")
     if not args.no_open:
         webbrowser.open(url)
+    if args.exit_when_closed:
+        def watch() -> None:
+            time.sleep(60)  # the page needs time to open and send its first heartbeat
+            while time.monotonic() - _last_ping[0] < CLOSED_AFTER:
+                time.sleep(5)
+            server.shutdown()
+        threading.Thread(target=watch, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
