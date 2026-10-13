@@ -137,7 +137,7 @@ function renderList() {
     tags.append(el('span', 'tag ' + j.place, PLACE[j.place] || j.place));
     tags.append(el('span', 'tag cv', 'CV: ' + j.resume));
     tags.append(el('span', 'tag', j.family));
-    if (j.chance) tags.append(el('span', 'tag', 'chance ' + j.chance));
+    if (j.chance || j.quality) tags.append(el('span', 'tag', 'chance ' + j.chance + ' · quality ' + j.quality));
     if (j.posted) tags.append(el('span', 'tag', 'posted ' + ago(j.posted)));
     else if (j.first_seen) tags.append(el('span', 'tag', 'found ' + ago(j.first_seen)));
     if (j.applied_at) tags.append(el('span', 'tag', 'applied ' + j.applied_at.slice(0, 10)));
