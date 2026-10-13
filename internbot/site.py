@@ -67,7 +67,7 @@ def _apps() -> sqlite3.Connection:
     return conn
 
 
-LEGACY_LIMIT = 30
+LEGACY_LIMIT = 1000
 
 
 def _legacy_rows(src: sqlite3.Connection, have: set[str]) -> list[dict]:
