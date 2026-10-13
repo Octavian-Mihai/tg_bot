@@ -191,8 +191,8 @@ web/              the dashboard / kanban app (separate; see web/README.md)
 ### 2. Make `profile.json` mine
 The ranking is only as good as this file. List the skills I really have (keys from
 `internbot/lexicon.py`), the role families I prefer in order, and the résumé variants I actually
-have: `base`, `backend`, `frontend`, `ai`, `game`, `security`, `devops`. A variant not listed falls
-back to the closest one I do have, ending at `base`.
+have: `fullstack`, `backend`, `ai`, `ios`, `security`. A variant not listed falls
+back to the closest one I do have, ending at `fullstack`.
 
 ### 3. Run locally
 ```bash

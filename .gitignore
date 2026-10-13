@@ -6,3 +6,11 @@ __pycache__/
 *.db
 *.sqlite3
 .DS_Store
+
+# Personal CVs / résumés: never commit
+cvs/
+resumes/
+*.pdf
+*.doc
+*.docx
+*.pages

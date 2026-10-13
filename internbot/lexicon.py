@@ -81,7 +81,7 @@ ROLE_FAMILIES: list[tuple[str, re.Pattern]] = [
     ("fullstack", _r(r"full[\s-]?stack")),
     ("ml", _r(r"machine learning|\bml\b|\bai\b|deep learning|\bnlp\b|computer vision|research engineer")),
     ("data", _r(r"data (?:engineer|scien|analytic)|analytics")),
-    ("security", _r(r"security|cryptograph|appsec|cyber|\bsoc\b|pentest|infosec")),
+    ("security", _r(r"security|devsecops|cryptograph|appsec|cyber|\bsoc\b|pentest|infosec")),
     ("mobile", _r(r"\bmobile\b|\bios\b|\bandroid\b")),
     ("embedded", _r(r"embedded|firmware")),
     ("infra", _r(r"infrastructure|platform|devops|\bsre\b|cloud|reliability|systems|network|sysadmin")),
@@ -143,70 +143,65 @@ STRONG_TIER_COMPANIES = {
 
 # --- résumé routing ----------------------------------------------------------------------------
 
-DEFAULT_RESUME_VARIANT = "base"
+# One variant per CV on file: ai, backend, fullstack (the general one), ios, security (DevSecOps).
+DEFAULT_RESUME_VARIANT = "fullstack"
 
-# Which résumé each role family wants. Families with no mapping fall to base.
+# Which résumé each role family wants. Families with no mapping fall to the default.
 RESUME_FAMILY_VARIANT = {
-    "swe": "base",
-    "fullstack": "base",
-    "embedded": "base",
+    "swe": "fullstack",
+    "fullstack": "fullstack",
+    "frontend": "fullstack",
+    "game": "fullstack",
+    "embedded": "fullstack",
     "backend": "backend",
-    "infra": "devops",
-    "frontend": "frontend",
-    "mobile": "frontend",
+    "infra": "backend",
+    "mobile": "ios",
     "ml": "ai",
     "data": "ai",
-    "game": "game",
     "security": "security",
 }
 # A variant you haven't made degrades along this chain instead of failing.
-RESUME_FALLBACK = {"devops": "backend", "security": "base", "game": "base", "ai": "base",
-                   "frontend": "base", "backend": "base"}
+RESUME_FALLBACK = {"ai": "fullstack", "backend": "fullstack", "ios": "fullstack", "security": "backend"}
 
 # Evidence in the posting body, scored per variant. Not SKILL_LEXICON: that answers "does the
-# candidate know this?", this answers "what shape of work is this posting?". `base` has no
-# signals by design: it wins by being the fallback.
+# candidate know this?", this answers "what shape of work is this posting?". `fullstack` is the
+# default: it wins ties and is the fallback.
 RESUME_SIGNALS: dict[str, list[tuple[str, re.Pattern, int]]] = {
-    "base": [],
+    "fullstack": [
+        ("React/Vue/Angular", _r(r"\breact\b|\bnext\.?js\b|\bvue\b|\bangular\b|\bsvelte\b"), 2),
+        ("CSS/design systems", _r(r"\bcss\b|\btailwind\b|\bdesign system\b|\bstyled-components\b"), 2),
+        ("Node/Express", _r(r"\bnode\.?js\b|\bexpress\.?js\b|\bprisma\b|\bfirebase\b"), 2),
+        ("browser/DOM", _r(r"\bbrowser\b|\bdom\b|\bsingle[\s-]page app|\baccessibility\b|\bwcag\b"), 1),
+        ("product", _r(r"\bproduct (?:engineer|team|feature)s?\b|\bend[\s-]to[\s-]end\b|\bfull[\s-]?stack\b"), 1),
+    ],
     "backend": [
         ("distributed systems", _r(r"\bdistributed systems?\b|\bmicroservices\b"), 2),
         ("databases", _r(r"\bpostgres(?:ql)?\b|\bmysql\b|\bdatabase schema\b|\bsql\b"), 2),
         ("queues/streaming", _r(r"\bkafka\b|\brabbitmq\b|\bcelery\b|\bmessage queue\b|\bredis\b"), 2),
-        ("API design", _r(r"\bgrpc\b|\brest(?:ful)? apis?\b|\bapi design\b"), 1),
+        ("JVM/Go services", _r(r"\bspring boot\b|\bjava\b|\bgolang\b|\bgrpc\b"), 1),
+        ("infra/observability", _r(r"\bkubernetes\b|\bk8s\b|\bterraform\b|\bprometheus\b|\bgrafana\b|\bobservability\b|\bon[\s-]call\b"), 1),
         ("scale/latency", _r(r"\bthroughput\b|\blatency\b|\bhigh availability\b|\bscalab"), 1),
     ],
-    "frontend": [
-        ("React/Vue/Angular", _r(r"\breact\b|\bnext\.?js\b|\bvue\b|\bangular\b|\bsvelte\b"), 2),
-        ("CSS/design systems", _r(r"\bcss\b|\btailwind\b|\bdesign system\b|\bstyled-components\b"), 2),
-        ("accessibility", _r(r"\baccessibility\b|\bwcag\b|\ba11y\b"), 2),
-        ("browser/DOM", _r(r"\bbrowser\b|\bdom\b|\bsingle[\s-]page app"), 1),
-        ("TypeScript", _r(r"\btypescript\b"), 1),
-    ],
     "ai": [
-        ("LLM work", _r(r"\bllms?\b|\blarge language model|\bprompt engineering\b|\bretrieval[\s-]augmented\b"), 2),
+        ("LLM work", _r(r"\bllms?\b|\blarge language model|\bprompt engineering\b|\bretrieval[\s-]augmented\b|\brag\b"), 2),
         ("ML frameworks", _r(r"\bpytorch\b|\btensorflow\b|\bscikit|\bjax\b"), 2),
         ("machine learning", _r(r"\bmachine learning\b|\bdeep learning\b|\bneural network"), 2),
         ("inference/serving", _r(r"\bmodel (?:serving|inference|training)\b|\bembeddings?\b|\bvector (?:database|search)\b"), 2),
-        ("data pipelines", _r(r"\bairflow\b|\bspark\b|\betl\b|\bdata pipeline"), 1),
+        ("data pipelines", _r(r"\bairflow\b|\bspark\b|\betl\b|\bdata pipeline|\bpandas\b"), 1),
     ],
-    "game": [
-        ("Unity/Unreal", _r(r"\bunity\b|\bunreal\b|\bgodot\b"), 2),
-        ("gameplay/engine", _r(r"\bgameplay\b|game engine|\bgamedev\b"), 2),
-        ("graphics/rendering", _r(r"\bshaders?\b|\brendering\b|\brasteriz|\bgraphics pipeline\b"), 2),
-        ("physics/simulation", _r(r"\bphysics (?:engine|simulation)\b|\bcollision detection\b"), 1),
-        ("C++", _r(r"\bc\+\+"), 1),
-    ],
-    "devops": [
-        ("containers/orchestration", _r(r"\bkubernetes\b|\bk8s\b|\bdocker\b|\bhelm\b"), 2),
-        ("infrastructure as code", _r(r"\bterraform\b|\bansible\b|\bpulumi\b|\bcloudformation\b"), 2),
-        ("CI/CD", _r(r"\bci/cd\b|\bgithub actions\b|\bjenkins\b|\bgitlab ci\b|\bargo ?cd\b"), 2),
-        ("observability", _r(r"\bprometheus\b|\bgrafana\b|\bobservability\b|\bmonitoring\b|\bon[\s-]call\b"), 1),
-        ("cloud", _r(r"\baws\b|\bazure\b|\bgcp\b|\bgoogle cloud\b"), 1),
+    "ios": [
+        ("Swift/SwiftUI", _r(r"\bswift\b|\bswiftui\b|\bswiftdata\b|\bobjective[\s-]c\b"), 2),
+        ("Apple platforms", _r(r"\bios\b|\bipados\b|\bwatchos\b|\bvisionos\b|\bmacos\b|\bxcode\b|\buikit\b|\bapple (?:platform|device)s?\b"), 2),
+        ("Apple frameworks", _r(r"\bhealthkit\b|\bcorebluetooth\b|\barkit\b|\bwidgetkit\b|\bcore ?data\b|\bcoreml\b|\bcore ?motion\b"), 2),
+        ("mobile app", _r(r"\bmobile app|\bapp store\b|\btestflight\b"), 1),
+        ("XCTest", _r(r"\bxctest\b|\bxcuitest\b"), 1),
     ],
     "security": [
         ("security operations", _r(r"\bsiem\b|\bsoc\b|\bincident response\b|\bthreat (?:hunting|detection|intel)"), 2),
         ("offensive security", _r(r"\bpenetration test|\bpentest|\bred team|\bexploit"), 2),
-        ("vulnerability management", _r(r"\bvulnerabilit(?:y|ies)\b|\bcve\b|\bowasp\b|\bappsec\b"), 2),
+        ("vulnerability management", _r(r"\bvulnerabilit(?:y|ies)\b|\bcve\b|\bcwe\b|\bowasp\b|\bappsec\b"), 2),
+        ("DevSecOps tooling", _r(r"\bdevsecops\b|\bcodeql\b|\bsast\b|\bdast\b|\bsarif\b|\bsnyk\b|\bsupply chain\b"), 2),
+        ("CI/CD security", _r(r"\bci/cd\b|\bgithub actions\b|\bgitlab ci\b|\bpre-commit\b|\bterraform\b"), 1),
         ("identity/crypto", _r(r"\bcryptograph|\bencryption\b|\biam\b|\bzero trust\b"), 1),
         ("compliance", _r(r"\bsoc ?2\b|\biso ?27001\b|\bgrc\b|\bcompliance\b"), 1),
     ],
@@ -216,10 +211,6 @@ RESUME_SIGNALS: dict[str, list[tuple[str, re.Pattern, int]]] = {
 # tools and IT engineers too. A hint can tip a posting that already leans somewhere, never
 # carry one alone.
 RESUME_COMPANY_HINTS: list[tuple[str, str, int, re.Pattern]] = [
-    ("games studio", "game", 1, _r(
-        r"\b(ubisoft|electronic arts|ea|behaviour|warner bros\.? games|wb games|eidos|gameloft|epic games|"
-        r"riot games|activision|blizzard|rockstar|bungie|naughty dog|square enix|unity technologies|"
-        r"bethesda|cd projekt|larian|haven studios|ludia|amplitude studios|2k)\b")),
     ("AI lab", "ai", 1, _r(r"\b(anthropic|openai|deepmind|cohere|mistral|hugging ?face|scale ai|databricks)\b")),
     ("security vendor", "security", 1, _r(r"\b(crowdstrike|palo alto networks|fortinet|zscaler|okta|cloudflare|rapid7|tenable)\b")),
 ]

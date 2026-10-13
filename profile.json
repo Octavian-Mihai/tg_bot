@@ -4,11 +4,11 @@
     "skills / strongSkills must be keys of SKILL_LEXICON in internbot/lexicon.py (unknown ones are",
     "ignored with a warning). strongSkills earn a bonus when a posting asks for them.",
     "preferredFamilies is ordered, best first. resumes lists the résumé variants you actually have:",
-    "base, backend, frontend, ai, game, security, devops. A variant not listed falls back to the",
-    "closest one you do have, ending at base."
+    "fullstack, backend, ai, ios, security. A variant not listed falls back to the",
+    "closest one you do have, ending at fullstack."
   ],
-  "skills": ["python", "typescript", "javascript", "react", "node", "sql", "docker", "git", "linux", "ci", "rest", "testing"],
+  "skills": ["python", "typescript", "javascript", "java", "go", "c#", "swift", "sql", "nosql", "react", "node", "django", "spring", "docker", "kubernetes", "terraform", "ci", "git", "linux", "rest", "testing", "ios", "spark", "distributed", "security", "datascience", "nlp"],
   "strongSkills": ["python", "typescript"],
   "preferredFamilies": ["swe", "infra", "security", "backend", "fullstack", "data", "frontend", "ml", "mobile", "embedded"],
-  "resumes": ["base", "backend", "frontend", "devops", "security"]
+  "resumes": ["fullstack", "backend", "ai", "ios", "security"]
 }

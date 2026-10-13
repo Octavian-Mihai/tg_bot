@@ -66,11 +66,24 @@ def test_no_description_means_low_confidence(profile):
 
 def test_resume_follows_the_title_then_the_body(profile):
     assert choose_resume(job(title="Backend Developer Intern"), profile).variant == "backend"
-    assert choose_resume(job(title="DevOps Intern"), profile).variant == "devops"
+    assert choose_resume(job(title="DevOps Intern"), profile).variant == "backend"
+    assert choose_resume(job(title="iOS Developer Intern"), profile).variant == "ios"
+    assert choose_resume(job(title="Machine Learning Intern"), profile).variant == "ai"
     assert choose_resume(job(title="Cybersecurity Intern"), profile).variant == "security"
-    assert choose_resume(job(title="Software Developer Intern"), profile).variant == "base"
-    body = "Kubernetes, Terraform, CI/CD pipelines and Prometheus monitoring on AWS."
-    assert choose_resume(job(title="Software Developer Intern", description=body), profile).variant == "devops"
+    assert choose_resume(job(title="Software Developer Intern"), profile).variant == "fullstack"
+    body = "CodeQL, SAST, OWASP vulnerabilities and DevSecOps in CI/CD pipelines."
+    assert choose_resume(job(title="Software Developer Intern", description=body), profile).variant == "security"
+
+
+def test_infra_roles_use_backend_unless_security_leads(profile):
+    for title in ("DevOps Intern", "Site Reliability Engineer Intern", "Cloud Platform Intern"):
+        assert choose_resume(job(title=title), profile).variant == "backend"
+    infra_body = "Kubernetes, Terraform and Prometheus monitoring on AWS."
+    assert choose_resume(job(title="DevOps Intern", description=infra_body), profile).variant == "backend"
+    assert role_family("DevSecOps Intern") == "security"
+    assert choose_resume(job(title="DevSecOps Intern"), profile).variant == "security"
+    sec_body = "CodeQL, SAST, OWASP vulnerabilities and CVE triage in CI/CD."
+    assert choose_resume(job(title="DevOps Intern", description=sec_body), profile).variant == "security"
 
 
 def test_one_stray_signal_does_not_override_the_title(profile):
@@ -79,11 +92,11 @@ def test_one_stray_signal_does_not_override_the_title(profile):
 
 
 def test_a_resume_you_do_not_have_falls_back(profile):
-    only_base = replace(profile, resumes=("base",))
-    c = choose_resume(job(title="DevOps Intern"), only_base)
-    assert c.variant == "base" and "no devops résumé on file" in c.reason
-    no_devops = replace(profile, resumes=("base", "backend"))
-    assert choose_resume(job(title="DevOps Intern"), no_devops).variant == "backend"
+    only_default = replace(profile, resumes=("fullstack",))
+    c = choose_resume(job(title="Cybersecurity Intern"), only_default)
+    assert c.variant == "fullstack" and "no security résumé on file" in c.reason
+    no_security = replace(profile, resumes=("fullstack", "backend"))
+    assert choose_resume(job(title="Cybersecurity Intern"), no_security).variant == "backend"
 
 
 def test_default_profile_loads_and_flags_unknown_skills(tmp_path):
@@ -92,6 +105,6 @@ def test_default_profile_loads_and_flags_unknown_skills(tmp_path):
     f = tmp_path / "p.json"
     f.write_text('{"skills": ["python", "cobol"], "resumes": ["backend"]}')
     p = load_profile(f)
-    assert p.skills == {"python"} and p.unknown_skills == ("cobol",) and p.resumes[0] == "base"
+    assert p.skills == {"python"} and p.unknown_skills == ("cobol",) and p.resumes[0] == "fullstack"
     assert isinstance(load_profile(tmp_path / "missing.json"), Profile)
     assert load_profile().skills

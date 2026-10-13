@@ -7,14 +7,14 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from internbot.lexicon import SKILL_LEXICON
+from internbot.lexicon import DEFAULT_RESUME_VARIANT, SKILL_LEXICON
 
 log = logging.getLogger(__name__)
 
 DEFAULT_PATH = Path(__file__).resolve().parent.parent / "profile.json"
 
 DEFAULT_FAMILIES = ["swe", "infra", "security", "backend", "fullstack", "data", "frontend", "ml", "mobile", "embedded"]
-DEFAULT_RESUMES = ["base", "backend", "frontend", "ai", "game", "security", "devops"]
+DEFAULT_RESUMES = ["fullstack", "backend", "ai", "ios", "security"]
 
 
 @dataclass(frozen=True)
@@ -43,8 +43,8 @@ def load_profile(path: str | os.PathLike | None = None) -> Profile:
     if unknown:
         log.warning("profile.json lists skills the lexicon doesn't know, ignored: %s", ", ".join(unknown))
     resumes = tuple(data.get("resumes") or base.resumes)
-    if "base" not in resumes:
-        resumes = ("base", *resumes)
+    if DEFAULT_RESUME_VARIANT not in resumes:
+        resumes = (DEFAULT_RESUME_VARIANT, *resumes)
     return Profile(
         skills=frozenset(s for s in skills if s in SKILL_LEXICON),
         strong_skills=frozenset(s for s in strong if s in SKILL_LEXICON),
