@@ -12,7 +12,7 @@ from internbot import places
 from internbot.collect import ATS_FETCHERS, collect  # noqa: F401 - ATS_FETCHERS re-exported for tests
 from internbot.config import Config, ConfigError, load_config
 from internbot.filters import filter_internships
-from internbot.formatting import action_keyboard, format_empty, format_messages, sources_footer
+from internbot.formatting import format_empty, format_messages, sources_footer
 from internbot.models import Job
 from internbot.notifier import NotifierError, TelegramNotifier
 from internbot.profile import Profile, load_profile
@@ -85,7 +85,7 @@ def run(dry_run: bool = False, config: Config | None = None, profile: Profile | 
             return 0
         notifier = TelegramNotifier.from_env()
         for msg in messages:
-            notifier.send(msg, reply_markup=action_keyboard(msg))
+            notifier.send(msg)
         # Mark postings seen only after every message went out, so a failed send is retried next run.
         storage.mark_seen([r.job for r in ranked])
     log.info("sent %d message(s) covering %d posting(s)", len(messages), len(ranked))

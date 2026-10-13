@@ -96,11 +96,3 @@ def test_priority_company_and_newest_break_ties(make_job, profile):
     from dataclasses import replace
     old, new = replace(make_job(4), posted="2026-01-01"), replace(make_job(5), posted="2026-10-01")
     assert rank_jobs([old, new], profile)[0].job.id == new.id
-
-
-def test_every_numbered_posting_gets_applied_and_skip_buttons(make_job, profile):
-    msg = format_messages(ranked(make_job, profile, 3))[0]
-    from internbot.formatting import action_keyboard
-    kb = action_keyboard(msg)["inline_keyboard"]
-    assert [r[0]["callback_data"] for r in kb] == ["a:1", "a:2", "a:3"]
-    assert all(len(r[0]["callback_data"]) < 64 for r in kb) and action_keyboard("nothing numbered") is None

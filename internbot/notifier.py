@@ -18,7 +18,7 @@ class NotifierError(RuntimeError):
 
 class Notifier(ABC):
     @abstractmethod
-    def send(self, text: str, reply_markup: dict | None = None) -> None:
+    def send(self, text: str) -> None:
         """Send a message, raising NotifierError on failure."""
 
 
@@ -42,22 +42,19 @@ class TelegramNotifier(Notifier):
             raise NotifierError(f"Missing environment variables: {', '.join(missing)}")
         return cls(token, chat_id)
 
-    def send(self, text: str, reply_markup: dict | None = None) -> None:
+    def send(self, text: str) -> None:
         if len(text) > TELEGRAM_MAX_LEN:
             raise NotifierError(f"Message too long ({len(text)} > {TELEGRAM_MAX_LEN})")
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-        payload = {
-            "chat_id": self.chat_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        if reply_markup:
-            payload["reply_markup"] = reply_markup
         try:
             resp = requests.post(
                 url,
-                json=payload,
+                json={
+                    "chat_id": self.chat_id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                },
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:

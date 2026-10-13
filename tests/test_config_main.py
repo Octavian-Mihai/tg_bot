@@ -87,7 +87,7 @@ class FakeNotifier:
     def __init__(self):
         self.sent = []
 
-    def send(self, text, reply_markup=None):
+    def send(self, text):
         self.sent.append(text)
 
 
