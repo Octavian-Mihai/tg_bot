@@ -79,11 +79,12 @@ def _legacy_rows(src: sqlite3.Connection, have: set[str]) -> list[dict]:
 
     profile = load_profile()
     out = []
-    for r in src.execute("SELECT id, title, company, url, first_seen FROM seen_jobs ORDER BY first_seen DESC, rowid DESC"):
-        if r["id"] in have:
+    latest = src.execute("SELECT id, title, company, url, first_seen FROM seen_jobs ORDER BY first_seen DESC, rowid DESC LIMIT ?",
+                         (LEGACY_LIMIT,)).fetchall()
+    detailed = {(c.strip().lower(), t.strip().lower()) for c, t in src.execute("SELECT company, title FROM postings")}
+    for r in latest:
+        if r["id"] in have or (r["company"].strip().lower(), r["title"].strip().lower()) in detailed:
             continue
-        if len(out) == LEGACY_LIMIT:
-            break
         choice = choose_resume(Job(id=r["id"], title=r["title"], company=r["company"], location="", url=r["url"],
                                    source=r["id"].split(":")[0]), profile)
         out.append({"id": r["id"], "title": r["title"], "company": r["company"], "location": "", "url": r["url"],
