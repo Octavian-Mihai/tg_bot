@@ -26,11 +26,14 @@ PLIST
 
 cat > "$APP/Contents/MacOS/internbot" <<LAUNCH
 #!/bin/bash
-cd "$ROOT"
 URL="http://127.0.0.1:8765"
+fail() { osascript -e "display alert \"Internbot could not start\" message \"\$1\"" >/dev/null 2>&1; exit 1; }
+cd "$ROOT" 2>/dev/null || fail "Cannot open $ROOT. Allow Internbot under System Settings > Privacy & Security > Files and Folders (Desktop), or move the project out of Desktop and rebuild."
+mkdir -p "$ROOT/local" 2>/dev/null || fail "Cannot write to $ROOT/local."
 if ! curl -s -o /dev/null "\$URL/api/ping"; then
   nohup "$PY" -m internbot.site --no-open --exit-when-closed > "$ROOT/local/site.log" 2>&1 &
   for _ in \$(seq 1 40); do curl -s -o /dev/null "\$URL/api/ping" && break; sleep 0.25; done
+  curl -s -o /dev/null "\$URL/api/ping" || fail "The server did not start. Last log lines: \$(tail -3 "$ROOT/local/site.log" | tr '"' "'")"
 fi
 # A standalone window (no tabs or address bar) when Chrome is installed, else the default browser.
 if [ -d "/Applications/Google Chrome.app" ]; then
@@ -72,5 +75,6 @@ for s in (16, 32, 128, 256, 512):
 subprocess.run(["iconutil", "-c", "icns", iconset, "-o", os.path.join(sys.argv[1], "icon.icns")], check=True)
 PYICON
 
+codesign --force --sign - "$APP" >/dev/null 2>&1 || true
 touch "$APP"
 echo "Installed $APP"
