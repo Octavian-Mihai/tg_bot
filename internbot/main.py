@@ -88,6 +88,7 @@ def run(dry_run: bool = False, config: Config | None = None, profile: Profile | 
             notifier.send(msg)
         # Mark postings seen only after every message went out, so a failed send is retried next run.
         storage.mark_seen([r.job for r in ranked])
+        storage.save_postings(ranked)
     log.info("sent %d message(s) covering %d posting(s)", len(messages), len(ranked))
     return 0
 

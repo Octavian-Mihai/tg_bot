@@ -79,3 +79,14 @@ def test_same_title_from_one_source_stays_distinct(tmp_path, make_job):
         assert s.filter_new([a, b]) == [a, b]
         s.mark_seen([a])
         assert s.filter_new([b]) == [b]
+
+
+def test_save_postings_keeps_dashboard_fields(make_job, profile, tmp_path):
+    from internbot.ranking import rank_jobs
+    from internbot.storage import Storage
+    ranked = rank_jobs([make_job(1, location="Montréal, QC"), make_job(2, location="Toronto, ON")], profile)
+    with Storage(str(tmp_path / "s.db")) as s:
+        s.save_postings(ranked)
+        s.save_postings(ranked)  # idempotent
+        rows = s.conn.execute("SELECT place, resume, rank FROM postings ORDER BY rank").fetchall()
+    assert [r[0] for r in rows] == ["montreal", "other"] and rows[0][2] == 1

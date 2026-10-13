@@ -6,6 +6,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from internbot.models import Job
+from internbot.places import MONTREAL, is_remote_canada
 
 DEFAULT_DB_PATH = "seen_jobs.db"
 
@@ -21,6 +22,26 @@ CREATE TABLE IF NOT EXISTS seen_jobs (
 """
 
 
+_POSTINGS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS postings (
+    id        TEXT PRIMARY KEY,
+    title     TEXT NOT NULL,
+    company   TEXT NOT NULL,
+    location  TEXT NOT NULL,
+    url       TEXT NOT NULL,
+    source    TEXT NOT NULL,
+    term      TEXT NOT NULL,
+    posted    TEXT NOT NULL,
+    chance    INTEGER NOT NULL,
+    quality   INTEGER NOT NULL,
+    resume    TEXT NOT NULL,
+    family    TEXT NOT NULL,
+    place     TEXT NOT NULL,
+    rank      INTEGER NOT NULL,
+    first_seen TEXT NOT NULL
+)
+"""
+
 _META_SCHEMA = "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
 
 
@@ -30,6 +51,7 @@ class Storage:
         self.conn = sqlite3.connect(self.path)
         self.conn.execute(_SCHEMA)
         self.conn.execute(_META_SCHEMA)
+        self.conn.execute(_POSTINGS_SCHEMA)
         self._migrate()
         self.conn.commit()
 
@@ -76,6 +98,18 @@ class Storage:
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 [(j.id, j.title, j.company, j.url, now, j.key) for j in jobs],
             )
+
+    def save_postings(self, ranked) -> None:
+        """Keep everything the local dashboard (internbot/site.py) shows for each notified posting."""
+        now = datetime.now(timezone.utc).isoformat()
+        rows = []
+        for i, r in enumerate(ranked, start=1):
+            j = r.job
+            place = "montreal" if MONTREAL.search(j.location or "") else "remote" if is_remote_canada(j.location or "") else "other"
+            rows.append((j.id, j.title, j.company, j.location, j.url, j.source, j.term, j.posted,
+                         r.score.chance, r.score.quality, r.resume.variant, r.resume.family, place, i, now))
+        with self.conn:
+            self.conn.executemany("INSERT OR IGNORE INTO postings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
 
     def stats(self, days: int = 7) -> tuple[int, int]:
         """Return (jobs first seen within the last `days` days, total jobs tracked)."""

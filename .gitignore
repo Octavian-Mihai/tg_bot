@@ -14,3 +14,6 @@ resumes/
 *.doc
 *.docx
 *.pages
+
+# Local dashboard data (internbot.site)
+local/

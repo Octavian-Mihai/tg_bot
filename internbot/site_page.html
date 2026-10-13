@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Internbot</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b1f24;--mute:#68717d;--line:#e3e6ea;--accent:#2f6fed;--ok:#1a8f5a;--skip:#8a919b;--warn:#b7791f;--chip:#eef1f5}
+@media (prefers-color-scheme:dark){:root{--bg:#14171b;--card:#1d2127;--ink:#e8ebef;--mute:#98a2ae;--line:#2c323a;--accent:#6b9bff;--ok:#43c38a;--skip:#7a828d;--warn:#e0a94b;--chip:#272d35}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:18px;margin:0 8px 0 0}
+nav button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer}
+nav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.spacer{flex:1}
+#sync{color:var(--mute);font-size:13px}
+main{max-width:1000px;margin:0 auto;padding:16px}
+.filters{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:14px;align-items:center}
+.group{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.group>span{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-right:2px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:3px 11px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+input[type=search]{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:200px}
+.job{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start}
+.job.applied{border-left:4px solid var(--ok)}.job.skipped{opacity:.55}
+.job .body{flex:1;min-width:0}
+.job a.title{font-weight:650;color:var(--ink);text-decoration:none}.job a.title:hover{color:var(--accent);text-decoration:underline}
+.meta{color:var(--mute);font-size:13px;margin-top:2px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.tag{font-size:12px;padding:2px 8px;border-radius:6px;background:var(--chip);color:var(--ink)}
+.tag.montreal{background:#2f6fed22;color:var(--accent);font-weight:600}
+.tag.cv{background:#8a5cf622}
+.actions{display:flex;flex-direction:column;gap:6px}
+.actions .btn{font-size:13px;padding:5px 10px;white-space:nowrap}
+.btn.ok{border-color:var(--ok);color:var(--ok)}.btn.ok.on{background:var(--ok);color:#fff}
+.btn.sk.on{background:var(--skip);color:#fff;border-color:var(--skip)}
+.empty{color:var(--mute);text-align:center;padding:48px 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-size:26px}.kpi span{color:var(--mute);font-size:13px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.panel h3{margin:0 0 10px;font-size:14px}
+.bar{display:grid;grid-template-columns:110px 1fr 34px;gap:8px;align-items:center;font-size:13px;margin:5px 0}
+.bar i{display:block;height:12px;border-radius:4px;background:var(--accent)}
+.bar em{font-style:normal;color:var(--mute);text-align:right}
+.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:560px){.job{flex-direction:column}.actions{flex-direction:row}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Internbot</h1>
+  <nav><button id="tab-jobs" class="on">Postings</button> <button id="tab-stats">My stats</button></nav>
+  <div class="spacer"></div>
+  <span id="sync"></span>
+  <button class="btn" id="refresh">Refresh</button>
+  <a class="btn" href="/export.csv" style="text-decoration:none">Export to Excel</a>
+</header>
+<main>
+  <section id="view-jobs">
+    <div class="filters" id="filters"></div>
+    <div id="list"></div>
+  </section>
+  <section id="view-stats" hidden></section>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const state = {jobs: [], place: 'all', cv: 'all', status: 'new', q: '', fetchedAt: null};
+const PLACE = {montreal: 'Montréal', remote: 'Remote Canada', other: 'Other'};
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+async function load(path = '/api/jobs') {
+  try {
+    const res = await fetch(path); const data = await res.json();
+    state.jobs = data.jobs; state.fetchedAt = new Date();
+    $('#sync').textContent = (data.result && data.result !== 'ok' ? data.result + ' · ' : '') + 'updated ' + state.fetchedAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+  } catch { $('#sync').textContent = 'server not reachable'; }
+  render();
+}
+
+async function mark(id, status) {
+  await fetch('/api/status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id, status})});
+  await load();
+}
+
+function chips(parent, label, options, key) {
+  const g = el('div', 'group'); g.append(el('span', null, label));
+  for (const [value, text] of options) {
+    const c = el('button', 'chip' + (state[key] === value ? ' on' : ''), text);
+    c.onclick = () => { state[key] = value; render(); };
+    g.append(c);
+  }
+  parent.append(g);
+}
+
+function ago(iso) {
+  if (!iso) return '';
+  const d = Math.floor((Date.now() - new Date(iso + (iso.length === 10 ? 'T00:00:00' : '')).getTime()) / 864e5);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + 'd ago';
+}
+
+function render() {
+  const cvs = [...new Set(state.jobs.map(j => j.resume))].sort();
+  const f = $('#filters'); f.replaceChildren();
+  chips(f, 'Status', [['new', 'To review'], ['applied', 'Applied'], ['skipped', 'Skipped'], ['all', 'All']], 'status');
+  chips(f, 'Where', [['all', 'Any'], ...Object.entries(PLACE)], 'place');
+  chips(f, 'CV', [['all', 'Any'], ...cvs.map(c => [c, c])], 'cv');
+  const s = el('input'); s.type = 'search'; s.placeholder = 'Search title or company'; s.value = state.q;
+  s.oninput = () => { state.q = s.value; renderList(); };
+  f.append(s);
+  renderList();
+  if (!$('#view-stats').hidden) renderStats();
+}
+
+function renderList() {
+  const q = state.q.toLowerCase();
+  const rows = state.jobs.filter(j =>
+    (state.status === 'all' || (state.status === 'new' ? !j.status : j.status === state.status)) &&
+    (state.place === 'all' || j.place === state.place) &&
+    (state.cv === 'all' || j.resume === state.cv) &&
+    (!q || (j.title + ' ' + j.company).toLowerCase().includes(q)));
+  const list = $('#list'); list.replaceChildren();
+  if (!rows.length) {
+    list.append(el('div', 'empty', state.jobs.length ? 'Nothing matches these filters.' : 'No data yet. Postings appear here after the bot\'s next run; then press Refresh.'));
+    return;
+  }
+  const order = {montreal: 0, remote: 1, other: 2};
+  rows.sort((a, b) => order[a.place] - order[b.place] || (b.first_seen || '').slice(0, 10).localeCompare((a.first_seen || '').slice(0, 10)) || a.rank - b.rank);
+  for (const j of rows) {
+    const card = el('div', 'job' + (j.status ? ' ' + j.status : ''));
+    const body = el('div', 'body');
+    const t = el('a', 'title', j.title); t.href = j.url; t.target = '_blank'; t.rel = 'noopener';
+    body.append(t, el('div', 'meta', j.company + (j.location ? ' — ' + j.location : '')));
+    const tags = el('div', 'tags');
+    tags.append(el('span', 'tag ' + j.place, PLACE[j.place] || j.place));
+    tags.append(el('span', 'tag cv', 'CV: ' + j.resume));
+    tags.append(el('span', 'tag', j.family));
+    if (j.chance) tags.append(el('span', 'tag', 'chance ' + j.chance));
+    if (j.posted) tags.append(el('span', 'tag', 'posted ' + ago(j.posted)));
+    else if (j.first_seen) tags.append(el('span', 'tag', 'found ' + ago(j.first_seen)));
+    if (j.applied_at) tags.append(el('span', 'tag', 'applied ' + j.applied_at.slice(0, 10)));
+    body.append(tags);
+    const act = el('div', 'actions');
+    const ap = el('button', 'btn ok' + (j.status === 'applied' ? ' on' : ''), j.status === 'applied' ? '✓ Applied' : 'Applied');
+    ap.onclick = () => mark(j.id, j.status === 'applied' ? null : 'applied');
+    const sk = el('button', 'btn sk' + (j.status === 'skipped' ? ' on' : ''), j.status === 'skipped' ? 'Skipped' : 'Skip');
+    sk.onclick = () => mark(j.id, j.status === 'skipped' ? null : 'skipped');
+    act.append(ap, sk);
+    card.append(body, act); list.append(card);
+  }
+}
+
+function bars(title, counts) {
+  const p = el('div', 'panel'); p.append(el('h3', null, title));
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) p.append(el('div', 'meta', 'Nothing yet'));
+  const max = Math.max(1, ...entries.map(e => e[1]));
+  for (const [k, v] of entries) {
+    const row = el('div', 'bar'); const i = el('i'); i.style.width = (v / max * 100) + '%';
+    const track = el('div'); track.append(i);
+    row.append(el('span', null, k), track, el('em', null, v)); p.append(row);
+  }
+  return p;
+}
+
+function weekStart(iso) {
+  const d = new Date(iso); const day = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - day);
+  return d.toISOString().slice(0, 10);
+}
+
+function renderStats() {
+  const v = $('#view-stats'); v.replaceChildren();
+  const applied = state.jobs.filter(j => j.status === 'applied');
+  const skipped = state.jobs.filter(j => j.status === 'skipped').length;
+  const weekAgo = Date.now() - 7 * 864e5;
+  const kpis = el('div', 'kpis');
+  for (const [n, label] of [[applied.length, 'Applied'], [applied.filter(j => new Date(j.applied_at) > weekAgo).length, 'Applied this week'], [skipped, 'Skipped'], [state.jobs.filter(j => !j.status).length, 'Left to review']]) {
+    const k = el('div', 'kpi'); k.append(el('b', null, n), el('span', null, label)); kpis.append(k);
+  }
+  v.append(kpis);
+  const tally = (rows, f) => rows.reduce((a, r) => { const k = f(r); a[k] = (a[k] || 0) + 1; return a; }, {});
+  const panels = el('div', 'panels');
+  const weeks = tally(applied, j => weekStart(j.applied_at));
+  const ordered = Object.fromEntries(Object.entries(weeks).sort().reverse().slice(0, 10).map(([k, n]) => ['week of ' + k.slice(5), n]));
+  panels.append(bars('Applications per week', ordered),
+    bars('By role (backend, ai, ...)', tally(applied, j => j.family)),
+    bars('By CV used', tally(applied, j => j.resume)),
+    bars('By location', tally(applied, j => PLACE[j.place] || j.place)),
+    bars('By company', tally(applied, j => j.company)));
+  v.append(panels);
+}
+
+function tab(name) {
+  $('#view-jobs').hidden = name !== 'jobs'; $('#view-stats').hidden = name !== 'stats';
+  $('#tab-jobs').classList.toggle('on', name === 'jobs'); $('#tab-stats').classList.toggle('on', name === 'stats');
+  if (name === 'stats') renderStats();
+}
+$('#tab-jobs').onclick = () => tab('jobs'); $('#tab-stats').onclick = () => tab('stats');
+$('#refresh').onclick = async () => { $('#refresh').textContent = 'Refreshing…'; await load('/api/refresh'); $('#refresh').textContent = 'Refresh'; };
+load(); setInterval(() => load('/api/refresh'), 5 * 60 * 1000);
+</script>
+</body>
+</html>

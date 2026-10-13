@@ -249,3 +249,15 @@ Most companies don't need an entry any more: if any feed links to their board, o
 The multi-source scraping, term classifier, scoring model and résumé router are ported from
 [ryan-helou/Jobify](https://github.com/ryan-helou/Jobify) (which has no license file), rewritten in
 Python and extended for winter terms, IT/cyber/DevOps roles and Telegram.
+
+## Local dashboard
+
+```bash
+python -m internbot.site
+```
+
+Opens http://127.0.0.1:8765 with every posting the bot has sent, tagged by location (Montréal / Remote Canada /
+Other), which CV to use and the role family, with Applied / Skip buttons and a "My stats" tab (applications per week,
+by role, CV, location and company). The page refreshes from the bot's `state` branch every 5 minutes, or press
+Refresh. Your marks live only in `local/applications.db`; "Export to Excel" downloads them as CSV. Postings appear
+after the first bot run that includes this feature.
