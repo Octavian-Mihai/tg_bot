@@ -5,7 +5,7 @@
 # skipped, so the workflow wakes every 15 minutes and runs whichever slot below is due and
 # hasn't been done yet. A slot GitHub skipped is caught up on the next wake-up.
 timezone = "America/Toronto"
-weekday_hours = [6, 8, 10, 12, 14, 16, 18, 20, 22]   # Mon-Fri
+weekday_hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]   # Mon-Fri, hourly
 weekend_hours = [8, 12, 16, 20]                      # Sat-Sun
 catch_up_hours = 6    # a missed slot is still run if it is at most this old
 max_attempts = 3      # tries per slot if the run fails, before giving up on that slot
