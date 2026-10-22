@@ -160,26 +160,43 @@ shortest schedule) and, on a keyword, starts `daily.yml` through the GitHub API 
 
 ## Project layout
 
-```
-internbot/
-  sources/        one module per source (github, workday, greenhouse, ...); base.py = HTTP, retries,
-                  parallel_map; common.py = the shared build_job gate
-  collect.py      runs every enabled source
-  terms.py        summer / winter / other-cycle classification
-  places.py       Montreal-area matching
-  scoring.py      chance + quality          lexicon.py   skills, role families, pay, company tiers
-  resume.py       résumé routing             profile.py   loads profile.json
-  ranking.py      best-first ordering        formatting.py  message layout
-  schedule.py     "is a slot due?"           listen.py    Telegram keyword -> workflow
-  filters.py  storage.py  notifier.py  config.py  main.py  heartbeat.py
-settings.toml     schedule, keywords, per-run cap, source switches
-companies.toml    company boards to watch + location keywords (also read by web/)
-profile.json      my skills and résumé variants, used for ranking
-data/             employers.json, phenom-sites.json
-tests/            pytest suite
-web/              the dashboard / kanban app (separate; see web/README.md)
-.github/workflows/  daily.yml (checks), listen.yml (keyword), weekly.yml (check-in + keepalive)
-```
+| Path | Purpose |
+|---|---|
+| `internbot/main.py` | Orchestrates collect → filter → dedupe → rank → notify |
+| `internbot/sources/` | One module per source (Greenhouse, Lever, Ashby, Workday, Job Bank, Adzuna, curated GitHub lists, …); `base.py` holds HTTP, retries and `parallel_map`, `common.py` the shared `build_job` gate |
+| `internbot/collect.py` | Runs every enabled source |
+| `internbot/terms.py` | Summer / winter / other-cycle classification (English and French) |
+| `internbot/places.py` | Montreal-area matching |
+| `internbot/filters.py` | Internship, IT-title and wanted-term filters |
+| `internbot/scoring.py`, `lexicon.py` | Chance and quality scores; skills, role families, pay and company-tier vocabulary |
+| `internbot/resume.py`, `profile.py` | Résumé routing and `profile.json` loading |
+| `internbot/ranking.py`, `formatting.py` | Best-first ordering and Telegram message layout |
+| `internbot/schedule.py`, `listen.py`, `heartbeat.py` | "Is a slot due?", keyword listener that starts a run, weekly check-in |
+| `internbot/storage.py`, `notifier.py`, `config.py`, `models.py` | SQLite seen-jobs store, Telegram client, settings loader, `Job` type |
+| `internbot/site.py`, `site_page.html` | Local dashboard (`python -m internbot.site`) |
+| `settings.toml` | Schedule, keywords, per-run cap, source switches |
+| `companies.toml` | Hand-picked company boards and location keywords (also read by `web/`) |
+| `profile.json` | My skills and résumé variants, used for ranking |
+| `data/` | `employers.json`, `phenom-sites.json` |
+| `tests/` | pytest suite |
+| `web/` | Dashboard / kanban app (separate; see `web/README.md`) |
+| `.github/workflows/` | `daily.yml` (checks), `listen.yml` (keyword), `weekly.yml` (check-in + keepalive) |
+
+## Design patterns
+
+- **Source plugin per provider.** Each job source is its own module returning a common `Job`, built through one shared
+  `build_job` gate, so adding a source never touches ranking or notification.
+- **Pipeline with a single entry point.** `main.py` is the only place that knows the order: collect, filter, dedupe, rank, notify.
+- **Dedupe by canonical identity.** URLs are normalised (host, tracking params, trailing slash) and repeats with the same
+  company, title, place and text are collapsed; earlier sources win.
+- **Data-driven behaviour.** Schedule, keywords, source switches, companies and the résumé profile live in TOML/JSON, not code.
+- **Pure scoring and classification.** Terms, places, scoring and résumé routing are deterministic functions, covered by tests.
+- **Serverless state.** The SQLite file is stored on an orphan `state` branch between GitHub Actions runs, so no server or disk
+  is needed.
+- **Polling bridge for events.** `listen.yml` polls Telegram and triggers the main workflow through the GitHub API instead of
+  needing a webhook server.
+- **Heartbeat for silent failure.** A weekly message means "alive"; its absence is the alarm, and the same job re-enables the
+  schedules GitHub would otherwise pause.
 
 ## Setup
 
